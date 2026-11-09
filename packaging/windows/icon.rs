@@ -8,7 +8,11 @@ fn main() {
     }
     let app = env::var("CARGO_PKG_NAME").expect("cargo names the package");
     let root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("cargo names the folder"));
-    let icon = root.join("../../assets/icons").join(format!("{app}.ico"));
+    let icon = if app == "ely-mark" && env::var_os("CARGO_FEATURE_STANDALONE").is_some() {
+        root.join("assets/reimu/app-icon.ico")
+    } else {
+        root.join("../../assets/icons").join(format!("{app}.ico"))
+    };
     let icon =
         fs::canonicalize(&icon).unwrap_or_else(|error| panic!("{}: {error}", icon.display()));
     println!("cargo:rerun-if-changed={}", icon.display());
