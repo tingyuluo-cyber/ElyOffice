@@ -1,86 +1,34 @@
-# Ely Office
+# 博丽手记 · ReimuMark
 
-Offline-first desktop apps in Rust and GPUI. Files stay in your folders; no account, no cloud service.
+博丽手记是基于 [ElyOffice 的 ElyMark](https://github.com/ELY-Open-Source/ElyOffice) 制作的独立 Markdown 编辑器。这个 fork 只维护 Markdown 编辑器，发布包只包含编辑器及 PDF 导出所需的工作进程。ElyOffice 的其他应用由上游维护。
 
-Download from [office.elygpui.com](https://office.elygpui.com) or the [latest release](https://github.com/ELY-Open-Source/ElyOffice/releases/latest): Windows, macOS (Apple silicon and Intel) and Linux (AppImage, deb, rpm, Arch, Nix; Debian 11 and Ubuntu 20.04 or newer).
+## 下载
 
-| App | Does | Engine |
-| --- | --- | --- |
-| ElyDoc | Word processing (DOCX, ODT) | LibreOfficeKit |
-| ElyTable | Spreadsheets (XLSX, ODS, CSV) | LibreOfficeKit |
-| ElyShow | Presentations (PPTX, ODP) | LibreOfficeKit, system media |
-| ElyPDF | PDF reading and editing, OCR, signatures | MuPDF, Tesseract |
-| ElyMail | Mail over IMAP, POP3 and SMTP; follows the system proxy | own IMAP and POP3, mail-send, SQLite |
-| ElyTree | Git client | Git |
-| ElyMark | Markdown | pulldown-cmark, RaTeX, mermaid-rs-renderer; MuPDF for PDF export |
-| ElyAgent | Second release | Kigi CLI |
+从 [GitHub Releases](https://github.com/tingyuluo-cyber/ElyOffice/releases/latest) 下载 `ReimuMark-*-windows-x64.zip`，解压整个文件夹，双击 `ReimuMark.exe`。适用于 Windows x64，无需安装 Rust。
 
-ElyMail signs in to Microsoft with OAuth, to Gmail and iCloud with an app password, and to QQ Mail, 163 and 126 with an authorization code.
+- 支持可视编辑、源码、阅读预览和宽幅显示。
+- 可以打开文件或目录，也可以拖入 Markdown 文件。左侧大纲默认展开，右侧缩略图可切换。
+- 提供灵梦红白与八云紫 Nord 两套主题，以及 HTML、纯文本和 PDF 导出。
+- 文档保存在自己选择的位置。默认设置目录为 `%LOCALAPPDATA%\ElyMarkReimu`。
 
-## Build
+## 构建
 
-Install Rust with [rustup](https://rustup.rs) (`rust-toolchain.toml` pins the version), then the system packages. Every system also needs Git, Python 3, curl, Node.js 22.18 or newer (the first to run the site's TypeScript tests unflagged) and pnpm (`check.sh` and the site use the last two).
+准备 Windows x64、Visual Studio C++ Build Tools（含 Windows SDK）和 Rustup。Rust 版本由 `rust-toolchain.toml` 指定。
 
-- macOS: Xcode (gpui compiles its shaders when the app starts, so the separate Metal toolchain is not needed); then `brew install cmake ninja pkg-config make gnu-sed bison flex gettext autoconf automake node pnpm bash` for LibreOffice and the checks (`build-libreoffice.sh` puts Homebrew's GNU make, sed, bison, flex and gettext first; the scripts need bash 5, since macOS's own bash 3.2 exits 0 after a `set -u` abort). The Intel release runs under Rosetta with an x86_64 bash 5 that `scripts/build-bash.sh` builds into `~/ely-share/bash-x86_64`.
-- Windows: Visual Studio 2022 with the C++ workload (MSVC, a Windows SDK and CMake with Ninja); gpui compiles its shaders with the SDK's `fxc.exe`. Git for Windows supplies bash and curl. LibreOffice builds under Cygwin in `C:\cygwin64` (`ELY_CYGWIN` elsewhere) with autoconf, automake and LibreOffice's GNU make in `/opt/lo/bin`, as its [Windows build guide](https://wiki.documentfoundation.org/Development/BuildingOnWindows) sets up.
-- Linux, one line per family, then pnpm. LibreOffice builds inside `packaging/linux/container.sh`, hence Docker. Ubuntu's own Node.js is too old, so Node.js 22 comes from NodeSource:
-
-```sh
-sudo apt install build-essential pkg-config git curl python3 docker.io libdbus-1-dev libfontconfig-dev libxcb1-dev libxkbcommon-x11-dev
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install nodejs
-sudo dnf install gcc make pkgconf-pkg-config git curl python3 nodejs npm moby-engine dbus-devel fontconfig-devel libxcb-devel libxkbcommon-x11-devel
-sudo pacman -S --needed base-devel git curl python nodejs npm docker dbus fontconfig libxcb libxkbcommon-x11
-sudo npm install -g pnpm
+```powershell
+cargo run --locked -p ely-mark --features standalone
 ```
 
-`scripts/doctor.sh` checks each of these for the system it runs on.
+打包需要 PowerShell 7.4 和 7-Zip。在仓库根目录运行以下命令，生成的 ZIP 位于 `dist`。
 
-```sh
-scripts/doctor.sh                 # toolchain versions
-scripts/fetch-references.sh       # upstream sources at pinned commits
-scripts/build-libreoffice.sh      # patched LibreOffice 26.2.6.3 (about an hour)
-scripts/build-mupdf.sh            # patched MuPDF 1.28.5
-scripts/build-git.sh && scripts/fetch-git-lfs.sh
-scripts/fetch-tessdata.sh
-cargo build -p ely-lok --bins -p ely-pdf-worker
-cargo run -p ely-doc              # or ely-table, ely-show, ely-pdf, ely-mail, ely-tree, ely-mark
+```powershell
+pwsh -File packaging/windows/reimu-zip.ps1
 ```
 
-ElyMail needs a Microsoft client ID at build time: put `ELY_MICROSOFT_CLIENT_ID=<id>` in `cred.txt` at the repository root (git ignores it).
+从源码运行时，如需 PDF 导出，请将 `ELY_PDF_WORKER` 设为从 ZIP 解压出的 `ely-pdf-worker.exe` 的绝对路径。运行 `cargo test --locked -p ely-mark --bin ely-mark` 前也要设置此变量。
 
-The scripts run on macOS, on Windows (LibreOffice under Cygwin, MuPDF with MSBuild) and on Linux inside `packaging/linux/container.sh`, an AlmaLinux 8 image that keeps the binaries on glibc 2.28.
+## 许可与来源
 
-## Experimental R macros
+自有代码使用 [MIT](LICENSE)。随包的第三方许可位于 `licenses`。PDF 导出随附 ElyMark 0.1.15 的原版工作进程，其中 MuPDF 使用 AGPL。对应的 [工作进程及构建脚本源码](https://github.com/ELY-Open-Source/ElyOffice/releases/download/v0.1.15/ElyOffice-0.1.15-dc32744d5daa-source.tar.gz) 和 [已应用补丁的 MuPDF 源码](https://github.com/ELY-Open-Source/ElyOffice/releases/download/v0.1.15/ElyOffice-0.1.15-dc32744d5daa-upstream-source.tar.gz) 均可从原版发行下载。
 
-ElyTable can run local R macros on a selected range, including values, header
-formatting and column widths. See [docs/r-macros.md](docs/r-macros.md) for
-setup, the small API and its limits. Requires R (Rscript) and a LOK engine
-built with patch 0081.
-
-## Release
-
-Pushing a `v*` tag runs `.github/workflows/release.yml`. Self-hosted runners build macOS (arm64, and Intel under Rosetta), Windows and Linux with `scripts/ci.sh` and upload each app's packages, update manifests and the source archives to the GitHub release. macOS builds are signed and notarized.
-
-## Tests
-
-`cargo test --workspace`; the script tests in `tests/scripts` (the window tests need macOS Accessibility permission; Linux tests run in containers); the benchmarks `tests/perf/bench.py` and `tests/perf/folder-search.rs`.
-
-## Documents
-
-| | |
-| --- | --- |
-| `PRD.md` | Requirements |
-| `agents.md` | Stack, rules and commands; the single source of truth |
-| `tasks/TASKS.md` | Progress |
-| `docs/decisions.md` | Decision log, by date |
-| `docs/help.md` | Help: opening and saving, panels, recovery, offline limits, repositories, mail |
-| `docs/compatibility.md` | Compatibility list, last verified for 0.1.11 |
-| `docs/accessibility.md` | Accessibility and language review |
-| `docs/perf/` | Benchmark records |
-| `docs/licenses.md` | Licences and sources |
-| `docs/acceptance.md` | Audit acceptance: each item, its task and its last review |
-| `CONTRIBUTING.md` | Opening a pull request |
-
-## Licence
-
-MIT (`LICENSE`). Third-party components keep their own licences; see `docs/licenses.md`.
+主题为《东方 Project》非官方二次创作。博丽灵梦与八云紫来自上海爱丽丝幻乐团的《东方 Project》，两张主题插画由 AI 生成。角色相关权利归原权利人所有。 [东方 Project 二次创作指引](https://touhou-project.news/guidelines_en/)

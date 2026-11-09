@@ -5,6 +5,12 @@ use directories::BaseDirs;
 
 use crate::AppId;
 
+pub(crate) const DATA_DIRECTORY: &str = if cfg!(feature = "reimu-profile") {
+    "ElyMarkReimu"
+} else {
+    "ElyOffice"
+};
+
 /// Everything an app stores lives here; uninstall removes only this.
 pub fn data_dir(app: AppId) -> Result<PathBuf> {
     Ok(root()?.join(app.slug()))
@@ -21,7 +27,7 @@ pub(crate) fn home() -> Result<PathBuf> {
         return Ok(root);
     }
     let base = BaseDirs::new().context("no home directory")?;
-    Ok(base.data_local_dir().join("ElyOffice"))
+    Ok(base.data_local_dir().join(DATA_DIRECTORY))
 }
 
 /// Benchmarks only: a seeded folder, never the user's.
@@ -49,7 +55,7 @@ fn omarchy_dir(home: &Path, over: Option<String>) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::{chosen_root, data_dir, omarchy_dir};
+    use super::{DATA_DIRECTORY, chosen_root, data_dir, omarchy_dir};
     use crate::AppId;
 
     #[test]
@@ -57,8 +63,8 @@ mod tests {
         let doc = data_dir(AppId::Doc).unwrap();
         let mail = data_dir(AppId::Mail).unwrap();
 
-        assert!(doc.ends_with("ElyOffice/ely-doc"), "{}", doc.display());
-        assert!(mail.ends_with("ElyOffice/ely-mail"), "{}", mail.display());
+        assert!(doc.ends_with(std::path::Path::new(DATA_DIRECTORY).join("ely-doc")), "{}", doc.display());
+        assert!(mail.ends_with(std::path::Path::new(DATA_DIRECTORY).join("ely-mail")), "{}", mail.display());
         assert_ne!(doc, mail);
     }
 

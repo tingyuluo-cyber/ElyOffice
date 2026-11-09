@@ -1602,27 +1602,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "csv"
-version = "1.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52cd9d68cf7efc6ddfaaee42e7288d3a99d613d4b50f76ce9827ae0c6e14f938"
-dependencies = [
- "csv-core",
- "itoa",
- "ryu",
- "serde_core",
-]
-
-[[package]]
-name = "csv-core"
-version = "0.1.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "704a3c26996a80471189265814dbc2c257598b96b8a7feae2d31ace646bb9782"
-dependencies = [
- "memchr",
-]
-
-[[package]]
 name = "ctor"
 version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1976,15 +1955,6 @@ dependencies = [
 
 [[package]]
 name = "ely-agent"
-version = "0.1.15"
-dependencies = [
- "ely-platform",
- "ely-ui",
- "embed-resource",
-]
-
-[[package]]
-name = "ely-agent"
 version = "0.2.0"
 source = "git+https://github.com/ELY-Open-Source/Ely-GPUI-Components?rev=e0f355ac1a669c24336244bcaa8131f7f0e4f1b5#e0f355ac1a669c24336244bcaa8131f7f0e4f1b5"
 dependencies = [
@@ -2154,30 +2124,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ely-doc"
-version = "0.1.15"
-dependencies = [
- "anyhow",
- "csv",
- "directories",
- "dunce",
- "ely-files 0.1.15",
- "ely-gpui-component",
- "ely-ipc",
- "ely-lok",
- "ely-office",
- "ely-platform",
- "ely-ui",
- "embed-resource",
- "gpui-pre",
- "image",
- "jiff",
- "log",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
 name = "ely-documents"
 version = "0.2.0"
 source = "git+https://github.com/ELY-Open-Source/Ely-GPUI-Components?rev=e0f355ac1a669c24336244bcaa8131f7f0e4f1b5#e0f355ac1a669c24336244bcaa8131f7f0e4f1b5"
@@ -2297,7 +2243,7 @@ source = "git+https://github.com/ELY-Open-Source/Ely-GPUI-Components?rev=e0f355a
 dependencies = [
  "anyhow",
  "ely-account",
- "ely-agent 0.2.0",
+ "ely-agent",
  "ely-calendar",
  "ely-canvas",
  "ely-charts",
@@ -2315,7 +2261,7 @@ dependencies = [
  "ely-generative",
  "ely-git",
  "ely-interaction",
- "ely-mail 0.2.0",
+ "ely-mail",
  "ely-maps",
  "ely-media",
  "ely-messaging",
@@ -2371,27 +2317,6 @@ dependencies = [
 
 [[package]]
 name = "ely-mail"
-version = "0.1.15"
-dependencies = [
- "base64 0.23.1",
- "directories",
- "ely-files 0.1.15",
- "ely-gpui-component",
- "ely-mail-engine",
- "ely-mail-fake",
- "ely-platform",
- "ely-ui",
- "embed-resource",
- "gpui-pre",
- "jiff",
- "log",
- "serde_json",
- "tempfile",
- "tokio",
-]
-
-[[package]]
-name = "ely-mail"
 version = "0.2.0"
 source = "git+https://github.com/ELY-Open-Source/Ely-GPUI-Components?rev=e0f355ac1a669c24336244bcaa8131f7f0e4f1b5#e0f355ac1a669c24336244bcaa8131f7f0e4f1b5"
 dependencies = [
@@ -2401,53 +2326,6 @@ dependencies = [
  "jiff",
  "log",
  "smallvec",
-]
-
-[[package]]
-name = "ely-mail-engine"
-version = "0.1.15"
-dependencies = [
- "base64 0.23.1",
- "ely-mail-fake",
- "ely-platform",
- "form_urlencoded",
- "getrandom 0.4.3",
- "html5ever",
- "idna",
- "imap-proto",
- "jiff",
- "keyring",
- "log",
- "mail-builder",
- "mail-parser",
- "mail-send",
- "mime_guess",
- "nom 8.0.0",
- "percent-encoding",
- "rusqlite",
- "rustls",
- "rustls-platform-verifier",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "smtp-proto",
- "tempfile",
- "tokio",
- "tokio-rustls",
- "ureq",
- "winreg",
-]
-
-[[package]]
-name = "ely-mail-fake"
-version = "0.1.15"
-dependencies = [
- "base64 0.23.1",
- "ely-mail-engine",
- "form_urlencoded",
- "rcgen",
- "tokio",
- "tokio-rustls",
 ]
 
 [[package]]
@@ -2577,27 +2455,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ely-pdf"
-version = "0.1.15"
-dependencies = [
- "dunce",
- "ely-files 0.1.15",
- "ely-gpui-component",
- "ely-ipc",
- "ely-office",
- "ely-pdf-engine",
- "ely-platform",
- "ely-ui",
- "embed-resource",
- "gpui-pre",
- "image",
- "log",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
 name = "ely-pdf-engine"
 version = "0.1.15"
 dependencies = [
@@ -2680,7 +2537,7 @@ dependencies = [
  "ely-calendar",
  "ely-core",
  "ely-documents",
- "ely-mail 0.2.0",
+ "ely-mail",
  "gpui-pre",
  "jiff",
  "log",
@@ -2713,49 +2570,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ely-show"
-version = "0.1.15"
-dependencies = [
- "ely-files 0.1.15",
- "ely-gpui-component",
- "ely-ipc",
- "ely-lok",
- "ely-office",
- "ely-platform",
- "ely-ui",
- "embed-resource",
- "gpui-pre",
- "gpui-pre-platform",
- "image",
- "jiff",
- "log",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "ely-table"
-version = "0.1.15"
-dependencies = [
- "ely-files 0.1.15",
- "ely-gpui-component",
- "ely-lok",
- "ely-office",
- "ely-platform",
- "ely-ui",
- "embed-resource",
- "encoding_rs",
- "futures",
- "gpui-pre",
- "libc",
- "log",
- "serde_json",
- "tempfile",
- "unicase",
- "windows-sys 0.60.2",
-]
-
-[[package]]
 name = "ely-terminal"
 version = "0.2.0"
 source = "git+https://github.com/ELY-Open-Source/Ely-GPUI-Components?rev=e0f355ac1a669c24336244bcaa8131f7f0e4f1b5#e0f355ac1a669c24336244bcaa8131f7f0e4f1b5"
@@ -2784,28 +2598,6 @@ dependencies = [
  "log",
  "smallvec",
  "web-time",
-]
-
-[[package]]
-name = "ely-tree"
-version = "0.1.15"
-dependencies = [
- "dunce",
- "ely-files 0.1.15",
- "ely-gpui-component",
- "ely-ipc",
- "ely-platform",
- "ely-ui",
- "embed-resource",
- "futures",
- "gpui-pre",
- "jiff",
- "libc",
- "log",
- "notify",
- "serde_json",
- "tempfile",
- "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -3031,18 +2823,6 @@ dependencies = [
  "smallvec",
  "zune-inflate",
 ]
-
-[[package]]
-name = "fallible-iterator"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
-
-[[package]]
-name = "fallible-streaming-iterator"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
 name = "fancy-regex"
@@ -3818,7 +3598,6 @@ dependencies = [
  "gpui-pre-linux",
  "gpui-pre-macos",
  "gpui-pre-web",
- "gpui-pre-wgpu",
  "gpui-pre-windows",
 ]
 
@@ -3925,7 +3704,6 @@ dependencies = [
  "gpui-pre",
  "gpui-pre-collections",
  "gpui-pre-util",
- "image",
  "itertools 0.14.0",
  "log",
  "parking_lot",
@@ -4051,27 +3829,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 dependencies = [
  "foldhash 0.2.0",
-]
-
-[[package]]
-name = "hashify"
-version = "0.2.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd1246c0e5493286aeb2dde35b1f4eb9c4ce00e628641210a5e553fc001a1f26"
-dependencies = [
- "indexmap",
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
-name = "hashlink"
-version = "0.12.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a596f1b20ed2cc5ecac41a164aaebc7258057060f06c0cf7a2ba3991ee7990fb"
-dependencies = [
- "hashbrown 0.17.1",
 ]
 
 [[package]]
@@ -4404,15 +4161,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09e54e57b4c48b40f7aec75635392b12b3421fa26fe8b4332e63138ed278459c"
 
 [[package]]
-name = "imap-proto"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ccf963d57074747b455398a1763d174da80bcaba6f51e3671a82252b531a68b"
-dependencies = [
- "nom 8.0.0",
-]
-
-[[package]]
 name = "imgref"
 version = "1.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4642,36 +4390,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jni"
-version = "0.22.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5efd9a482cf3a427f00d6b35f14332adc7902ce91efb778580e180ff90fa3498"
-dependencies = [
- "cfg-if",
- "combine",
- "jni-macros",
- "jni-sys 0.4.1",
- "log",
- "simd_cesu8",
- "thiserror 2.0.21",
- "walkdir",
- "windows-link 0.2.1",
-]
-
-[[package]]
-name = "jni-macros"
-version = "0.22.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a00109accc170f0bdb141fed3e393c565b6f5e072365c3bd58f5b062591560a3"
-dependencies = [
- "proc-macro2",
- "quote",
- "rustc_version",
- "simd_cesu8",
- "syn 2.0.119",
-]
-
-[[package]]
 name = "jni-sys"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4858,17 +4576,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "libsqlite3-sys"
-version = "0.38.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1d20bef17f513b9b3004532233187769cd072d790971f4e4da0e346eb6401e8"
-dependencies = [
- "cc",
- "pkg-config",
- "vcpkg",
-]
-
-[[package]]
 name = "linebender_resource_handle"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5048,36 +4755,6 @@ name = "mach2"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dae608c151f68243f2b000364e1f7b186d9c29845f7d2d85bd31b9ad77ad552b"
-
-[[package]]
-name = "mail-builder"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccbc27cb02a58a311a404769a22f5abf63fe3173b290d80be7c534f9c7023151"
-
-[[package]]
-name = "mail-parser"
-version = "0.11.9"
-dependencies = [
- "encoding_rs",
- "hashify",
-]
-
-[[package]]
-name = "mail-send"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8355326d14f08c9de5e9badfe606d9ba8fea2febb60fe4318ecbac33cfb7b41e"
-dependencies = [
- "base64 0.23.1",
- "gethostname",
- "rustls",
- "rustls-pki-types",
- "rustls-platform-verifier",
- "smtp-proto",
- "tokio",
- "tokio-rustls",
-]
 
 [[package]]
 name = "malloc_buf"
@@ -7246,31 +6923,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rsqlite-vfs"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c51c9ae4df8a7fba42103df5c621fa3c37eccf3a3c650879e90fc48b11cc192c"
-dependencies = [
- "hashbrown 0.16.1",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "rusqlite"
-version = "0.40.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23f2a97da3e3873c73cb2a2e71b35c40ff95e0b1eefa8d72d8499a6928c3b5b3"
-dependencies = [
- "bitflags 2.13.2",
- "fallible-iterator",
- "fallible-streaming-iterator",
- "hashlink",
- "libsqlite3-sys",
- "smallvec",
- "sqlite-wasm-rs",
-]
-
-[[package]]
 name = "rust-embed"
 version = "8.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7400,33 +7052,6 @@ checksum = "2f4925028c7eb5d1fcdaf196971378ed9d2c1c4efc7dc5d011256f76c99c0a96"
 dependencies = [
  "zeroize",
 ]
-
-[[package]]
-name = "rustls-platform-verifier"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1167586491e2b18b8bfbb293e8180ec17c201c4f076d7cb3070ca964e7598f98"
-dependencies = [
- "core-foundation 0.10.0",
- "core-foundation-sys",
- "jni 0.22.4",
- "log",
- "once_cell",
- "rustls",
- "rustls-native-certs",
- "rustls-platform-verifier-android",
- "rustls-webpki",
- "security-framework 3.7.0",
- "security-framework-sys",
- "webpki-root-certs",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "rustls-platform-verifier-android"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eec689c0bc40ff2458a5977b6619cb718087084a18e02a131c599b62d05e1a5f"
 
 [[package]]
 name = "rustls-webpki"
@@ -7813,16 +7438,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a219298ac11a56ea9a6d2120044824d6f01aeb034955e7af7bc16858527deea"
 
 [[package]]
-name = "simd_cesu8"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11031e251abf8611c80f460e19dbdeb54a66db918e49c65a7065b46ac7aec520"
-dependencies = [
- "rustc_version",
- "simdutf8",
-]
-
-[[package]]
 name = "simd_helpers"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7931,25 +7546,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "smtp-proto"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "142a5a642c6bd7ffd7e1b525ad6a6e9921ccef992dba4663974f8519209a00c1"
-dependencies = [
- "memchr",
-]
-
-[[package]]
-name = "socket2"
-version = "0.6.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
-dependencies = [
- "libc",
- "windows-sys 0.61.2",
-]
-
-[[package]]
 name = "socks"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7985,18 +7581,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9571ea910ebd84c86af4b3ed27f9dbdc6ad06f17c5f96146b2b671e2976744f"
 dependencies = [
  "bitflags 2.13.2",
-]
-
-[[package]]
-name = "sqlite-wasm-rs"
-version = "0.5.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc3efc0da82635d7e1ced0053bbbfa8c7ab9645d0bf36ceb4f7127bb85315d75"
-dependencies = [
- "cc",
- "js-sys",
- "rsqlite-vfs",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -8444,42 +8028,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
-name = "tokio"
-version = "1.54.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3"
-dependencies = [
- "bytes",
- "libc",
- "mio",
- "pin-project-lite",
- "socket2",
- "tokio-macros",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "tokio-macros"
-version = "2.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78773a2a397f451582ce068015985c33193cf6dea8b74d2a639fe457b2f07b0e"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 3.0.6",
-]
-
-[[package]]
-name = "tokio-rustls"
-version = "0.26.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9cc2678c2cdd569ef8215e2afd7954ada2ae20b4fdd2c5fe6139a3b02d105db"
-dependencies = [
- "rustls",
- "tokio",
-]
-
-[[package]]
 name = "toml"
 version = "0.8.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8855,12 +8403,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "vcpkg"
-version = "0.2.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
-
-[[package]]
 name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9135,15 +8677,6 @@ dependencies = [
  "phf_codegen",
  "string_cache",
  "string_cache_codegen",
-]
-
-[[package]]
-name = "webpki-root-certs"
-version = "1.0.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e49d0e65abc00c142e8f9428da991da9f1a250c39be97459901eb12b9b49f62a"
-dependencies = [
- "rustls-pki-types",
 ]
 
 [[package]]
@@ -10088,7 +9621,7 @@ dependencies = [
  "dpi",
  "dunce",
  "http",
- "jni 0.21.1",
+ "jni",
  "libc",
  "ndk",
  "objc2 0.6.4",

@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use ely_gpui_component::documents::{
-    DocumentEvent, EditRefusal, LARGEST_READ, MarkdownDocument, MarkdownMode,
+    Attachment, DocumentEvent, DocumentLook, EditRefusal, LARGEST_READ, MarkdownDocument, MarkdownMode,
 };
 use gpui::{
     AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable as _,
@@ -22,6 +22,8 @@ pub struct Failed(pub String);
 /// An edit asked did not happen, and why.
 pub struct Refused(pub EditRefusal);
 
+pub(crate) struct DroppedPaths(pub Vec<PathBuf>);
+
 /// How a document shows (MARK-02).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -33,6 +35,15 @@ pub enum Mode {
 
 impl Mode {
     pub const ALL: [Mode; 3] = [Mode::Visual, Mode::Source, Mode::Preview];
+
+    pub fn icon(self) -> ely_gpui_component::primitives::IconName {
+        use ely_gpui_component::primitives::IconName;
+        match self {
+            Mode::Visual => IconName::PenLine,
+            Mode::Source => IconName::Code,
+            Mode::Preview => IconName::Eye,
+        }
+    }
 
     pub fn name(self) -> &'static str {
         match self {
@@ -81,6 +92,10 @@ pub struct MarkView {
     /// The mark at the last load or save.
     saved: String,
     pub mode: Mode,
+    pub(crate) editing_mode: Mode,
+    look: DocumentLook,
+    wide_edit: bool,
+    wide_preview: bool,
     /// A saved file's folder: pictures resolve and go here.
     pub(crate) folder: Option<PathBuf>,
     /// The mode first took input (PERF-07).
@@ -95,6 +110,7 @@ pub struct MarkView {
 impl EventEmitter<Reported> for MarkView {}
 impl EventEmitter<Failed> for MarkView {}
 impl EventEmitter<Refused> for MarkView {}
+impl EventEmitter<DroppedPaths> for MarkView {}
 
 impl MarkView {
     pub fn new(doc: Doc, saved: String, window: &mut Window, cx: &mut Context<Self>) -> Self {
@@ -112,8 +128,11 @@ impl MarkView {
             document
         });
         cx.subscribe_in(&document, window, Self::heard).detach();
-        cx.subscribe(&document, |view, _, attached, cx| view.attach(attached, cx))
-            .detach();
+        cx.subscribe(&document, |view, _, attached, cx| match attached {
+            Attachment::Files(paths) => cx.emit(DroppedPaths(paths.clone())),
+            Attachment::Picture(_) => view.attach(attached, cx),
+        })
+        .detach();
         // The shell hears the load.
         cx.defer_in(window, |view, _, cx| {
             view.show_once(cx);
@@ -132,6 +151,10 @@ impl MarkView {
             changed: 0,
             saved,
             mode,
+            editing_mode: mode,
+            look: DocumentLook::default(),
+            wide_edit: false,
+            wide_preview: false,
             folder: None,
             shown: false,
             wheel: 0.0,
@@ -181,10 +204,43 @@ impl MarkView {
         }
         log::info!("mark: switches to {}", mode.name());
         self.mode = mode;
+        if mode != Mode::Preview {
+            self.editing_mode = mode;
+        }
+        self.apply_look(cx);
         self.document.update(cx, |document, cx| {
             document.set_mode(mode.shown(), window, cx)
         });
         cx.notify();
+    }
+
+    pub(crate) fn set_look(
+        &mut self,
+        look: DocumentLook,
+        wide_edit: bool,
+        wide_preview: bool,
+        cx: &mut Context<Self>,
+    ) {
+        self.look = look;
+        self.wide_edit = wide_edit;
+        self.wide_preview = wide_preview;
+        self.apply_look(cx);
+    }
+
+    fn apply_look(&self, cx: &mut Context<Self>) {
+        let mut look = self.look.clone();
+        let wide = match self.mode {
+            Mode::Preview => self.wide_preview,
+            Mode::Visual | Mode::Source => self.wide_edit,
+        };
+        if wide {
+            look.measure = None;
+        }
+        self.document.update(cx, |document, cx| {
+            if document.look() != &look {
+                document.set_look(look, cx);
+            }
+        });
     }
 
     /// The headings as last read.

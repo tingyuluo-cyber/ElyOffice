@@ -1,6 +1,15 @@
 //! Spanish words for ElyMark.
 
 pub(super) const ES: &[(&str, &str)] = &[
+    ("mark.tabs.open", "Pestañas abiertas"),
+    ("mark.look.wide_edit", "Edición ancha"),
+    ("mark.look.wide_preview", "Vista previa ancha"),
+    ("mark.look.minimap", "Minimapa del documento"),
+    ("mark.art.reimu", "Reimu Hakurei"),
+    ("mark.art.yukari", "Yukari Yakumo"),
+    ("mark.view.reading", "Alternar vista de lectura"),
+    ("command.file.open_folder", "Abrir carpeta…"),
+    ("mark.drop.markdown", "Suelta archivos Markdown (.md o .markdown) o carpetas."),
     ("mark.pane.files", "Archivos"),
     ("mark.pane.outline", "Esquema"),
     ("mark.pane.search", "Buscar"),

@@ -1,6 +1,15 @@
 //! Korean mark messages.
 
 pub(super) const KO: &[(&str, &str)] = &[
+    ("mark.tabs.open", "열린 탭"),
+    ("mark.look.wide_edit", "넓은 편집"),
+    ("mark.look.wide_preview", "넓은 미리 보기"),
+    ("mark.look.minimap", "문서 미니맵"),
+    ("mark.art.reimu", "하쿠레이 레이무"),
+    ("mark.art.yukari", "야쿠모 유카리"),
+    ("mark.view.reading", "읽기 보기 전환"),
+    ("command.file.open_folder", "폴더 열기…"),
+    ("mark.drop.markdown", "Markdown 파일(.md 또는 .markdown)이나 폴더를 놓으세요."),
     ("mark.pane.files", "파일"),
     ("mark.pane.outline", "개요"),
     ("mark.pane.search", "검색"),

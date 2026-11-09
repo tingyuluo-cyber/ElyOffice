@@ -17,7 +17,7 @@ use crate::{
 const POINTER: &str = "folder.json";
 const KEY: &str = "folder";
 /// A picked folder's subfolder; data never mixes with its files.
-const NAME: &str = "ElyOffice";
+const NAME: &str = crate::dirs::DATA_DIRECTORY;
 /// Files a running copy holds; never moved.
 const LIVE: [&str; 2] = ["instance.lock", "instance.door"];
 /// Held by a start until its instance lock is taken.
@@ -73,7 +73,7 @@ pub fn state() -> io::Result<State> {
     read(&crate::dirs::home().map_err(io::Error::other)?)
 }
 
-/// Moves the data into `parent`'s `ElyOffice` at the next start.
+/// Moves data into the app folder under `parent`.
 pub fn choose(parent: &Path) -> io::Result<State> {
     choose_in(&crate::dirs::home().map_err(io::Error::other)?, parent)
 }

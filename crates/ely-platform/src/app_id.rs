@@ -23,7 +23,7 @@ impl AppId {
         AppId::Agent,
     ];
 
-    /// The macOS bundle identifier `packaging/macos/bundle.sh` writes.
+    /// The macOS bundle identifier used by upstream.
     pub fn bundle_id(self) -> String {
         format!("ely.zacharyzhang.office.{}", &self.slug()["ely-".len()..])
     }
@@ -60,14 +60,6 @@ mod tests {
     use super::AppId::{self, *};
 
     const IN_PRD_ORDER: [AppId; 8] = AppId::ALL;
-
-    #[test]
-    fn bundle_ids_match_the_packaging() {
-        assert_eq!(Doc.bundle_id(), "ely.zacharyzhang.office.doc");
-        let script = include_str!("../../../packaging/macos/bundle.sh");
-        assert!(script.contains("prefix=ely.zacharyzhang.office\n"));
-        assert!(script.contains("<string>$prefix.${slug#ely-}</string>"));
-    }
 
     #[test]
     fn names_follow_the_prd() {

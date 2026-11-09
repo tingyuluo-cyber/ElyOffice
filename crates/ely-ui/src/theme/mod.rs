@@ -1,4 +1,4 @@
-use ely_gpui_component::theme::{ActiveTheme as _, Mode, Theme};
+use ely_gpui_component::theme::{ActiveTheme as _, Mode, Palette, Theme};
 use ely_platform::settings::{Appearance, Shared, UI_TEXT_SIZES};
 use ely_platform::{accessibility, env, omarchy_current_dir};
 use gpui::{App, Global, SharedString, Window, WindowAppearance};
@@ -43,6 +43,22 @@ struct OmarchyState(Option<OmarchyTheme>);
 
 impl Global for OmarchyState {}
 
+struct PairedPalettes;
+
+impl Global for PairedPalettes {}
+
+pub(crate) fn uses_paired_palettes(cx: &App) -> bool {
+    cx.has_global::<PairedPalettes>()
+}
+
+/// Installs an app's palettes under its usual appearance setting.
+pub fn set_paired_palettes(light: Palette, dark: Palette, cx: &mut App) {
+    cx.set_global(PairedPalettes);
+    Theme::set_palette(Mode::Light, Some(light), cx);
+    Theme::set_palette(Mode::Dark, Some(dark), cx);
+    apply(cx, true);
+}
+
 /// The theme's own font family, before any setting.
 struct OwnFont(SharedString);
 
@@ -81,7 +97,13 @@ fn text(cx: &mut App) {
     };
     let size = shared.ui_text_size;
     // Listing fonts is slow; only a chosen family needs it.
-    if !shared.ui_font.is_empty() && !cx.text_system().all_font_names().iter().any(|name| *name == *family) {
+    if !shared.ui_font.is_empty()
+        && !cx
+            .text_system()
+            .all_font_names()
+            .iter()
+            .any(|name| *name == *family)
+    {
         log::warn!("theme: no font family {family} on this system; text falls back");
     }
     Theme::update(cx, |theme| {
@@ -95,13 +117,19 @@ fn motion(cx: &mut App) {
     let reduce = accessibility::reduce_motion(crate::settings::current(cx).motion);
     cx.set_reduce_motion(reduce);
     Theme::update(cx, |theme| theme.reduced_motion = reduce);
-    log::info!("theme: reduced motion {}", if reduce { "on" } else { "off" });
+    log::info!(
+        "theme: reduced motion {}",
+        if reduce { "on" } else { "off" }
+    );
 }
 
 fn scrollbars(cx: &mut App) {
     let shown = crate::settings::current(cx).always_scrollbars;
     Theme::update(cx, |theme| theme.scrollbars_shown = shown);
-    log::info!("theme: scrollbars {}", if shown { "always shown" } else { "fade" });
+    log::info!(
+        "theme: scrollbars {}",
+        if shown { "always shown" } else { "fade" }
+    );
 }
 
 /// Re-applies the theme when the system appearance changes.
@@ -113,7 +141,7 @@ pub fn follow_system(window: &mut Window) {
 
 fn apply(cx: &mut App, at_once: bool) {
     let settings = cx.global::<ThemeSettings>().clone();
-    let omarchy = cx.global::<OmarchyState>().0.clone();
+    let paired = uses_paired_palettes(cx);
     let set_mode = |mode: Mode, cx: &mut App| {
         if at_once {
             Theme::set_mode_now(mode, cx);
@@ -122,8 +150,10 @@ fn apply(cx: &mut App, at_once: bool) {
         }
     };
 
-    if let Some(theme) =
-        omarchy.filter(|_| settings.appearance == Appearance::System && settings.omarchy_sync)
+    if !paired
+        && settings.appearance == Appearance::System
+        && settings.omarchy_sync
+        && let Some(theme) = cx.global::<OmarchyState>().0.clone()
     {
         let other = if theme.mode == Mode::Dark {
             Mode::Light
@@ -142,8 +172,10 @@ fn apply(cx: &mut App, at_once: bool) {
         return;
     }
 
-    Theme::set_palette(Mode::Light, None, cx);
-    Theme::set_palette(Mode::Dark, None, cx);
+    if !paired {
+        Theme::set_palette(Mode::Light, None, cx);
+        Theme::set_palette(Mode::Dark, None, cx);
+    }
     let mode = match settings.appearance {
         Appearance::System => {
             cx.set_window_appearance(None);

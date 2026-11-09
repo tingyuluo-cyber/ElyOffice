@@ -16,7 +16,7 @@ use gpui::{
 use super::Shell;
 use crate::commands::{
     self, Export, New, Open, OpenElyAgent, OpenElyDoc, OpenElyMail, OpenElyMark, OpenElyPdf,
-    OpenElyShow, OpenElyTable, OpenElyTree, Print, Save, SaveAs, ToggleCommandPalette,
+    OpenElyShow, OpenElyTable, OpenElyTree, OpenFolder, Print, Save, SaveAs, ToggleCommandPalette,
 };
 
 /// The shared root: shell, file commands, command palette.
@@ -166,7 +166,7 @@ impl Root {
     /// Runs a palette pick; views act first, so check here.
     pub fn run_from_palette(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         if !self.refused(id, cx) {
-            commands::run(id, window, cx);
+            commands::run(self.file, id, window, cx);
         }
     }
 
@@ -284,6 +284,9 @@ impl Render for Root {
             .key_context(commands::CONTEXT)
             .on_action(cx.listener(|this, _: &New, _, cx| this.attempt("file.new", cx)))
             .on_action(cx.listener(|this, _: &Open, _, cx| this.attempt("file.open", cx)))
+            .when(has("file.open_folder"), |frame| {
+                frame.on_action(cx.listener(|this, _: &OpenFolder, _, cx| this.attempt("file.open_folder", cx)))
+            })
             .when(has("file.save"), |frame| {
                 frame
                     .on_action(cx.listener(|this, _: &Save, _, cx| this.attempt("file.save", cx)))

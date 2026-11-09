@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=@NAME@
-Exec=@SLUG@ @ARGS@
-MimeType=@MIME@
-Icon=@SLUG@
-Categories=@CATEGORIES@
-StartupWMClass=@SLUG@
-Terminal=false

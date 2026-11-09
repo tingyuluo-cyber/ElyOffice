@@ -7,6 +7,9 @@ license.workspace = true
 publish.workspace = true
 build = "../../packaging/windows/icon.rs"
 
+[features]
+standalone = ["ely-platform/reimu-profile"]
+
 [build-dependencies]
 embed-resource.workspace = true
 

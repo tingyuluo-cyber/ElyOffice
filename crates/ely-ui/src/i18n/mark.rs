@@ -1,6 +1,15 @@
 //! Words for ElyMark.
 
 pub(super) const EN: &[(&str, &str)] = &[
+    ("mark.tabs.open", "Open tabs"),
+    ("mark.look.wide_edit", "Wide Editing"),
+    ("mark.look.wide_preview", "Wide Preview"),
+    ("mark.look.minimap", "Document minimap"),
+    ("mark.art.reimu", "Reimu Hakurei"),
+    ("mark.art.yukari", "Yukari Yakumo"),
+    ("mark.view.reading", "Toggle Reading View"),
+    ("command.file.open_folder", "Open Folder…"),
+    ("mark.drop.markdown", "Drop Markdown files (.md or .markdown) or folders."),
     ("mark.pane.files", "Files"),
     ("mark.pane.outline", "Outline"),
     ("mark.pane.search", "Search"),
@@ -114,6 +123,15 @@ pub(super) const EN: &[(&str, &str)] = &[
 ];
 
 pub(super) const ZH_CN: &[(&str, &str)] = &[
+    ("mark.tabs.open", "打开的标签页"),
+    ("mark.look.wide_edit", "宽幅编辑"),
+    ("mark.look.wide_preview", "宽幅预览"),
+    ("mark.look.minimap", "文档缩略图"),
+    ("mark.art.reimu", "博丽灵梦"),
+    ("mark.art.yukari", "八云紫"),
+    ("mark.view.reading", "切换阅读视图"),
+    ("command.file.open_folder", "打开文件夹…"),
+    ("mark.drop.markdown", "请拖入 Markdown 文件（.md 或 .markdown）或文件夹。"),
     ("mark.pane.files", "文件"),
     ("mark.pane.outline", "大纲"),
     ("mark.pane.search", "搜索"),

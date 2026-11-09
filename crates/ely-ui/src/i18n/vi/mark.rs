@@ -1,6 +1,15 @@
 //! Vietnamese words for ElyMark.
 
 pub(super) const VI: &[(&str, &str)] = &[
+    ("mark.tabs.open", "Thẻ đang mở"),
+    ("mark.look.wide_edit", "Chỉnh sửa rộng"),
+    ("mark.look.wide_preview", "Xem trước rộng"),
+    ("mark.look.minimap", "Bản đồ tài liệu"),
+    ("mark.art.reimu", "Reimu Hakurei"),
+    ("mark.art.yukari", "Yukari Yakumo"),
+    ("mark.view.reading", "Chuyển chế độ đọc"),
+    ("command.file.open_folder", "Mở thư mục…"),
+    ("mark.drop.markdown", "Thả tệp Markdown (.md hoặc .markdown) hoặc thư mục."),
     ("mark.pane.files", "Tệp tin"),
     ("mark.pane.outline", "Dàn bài"),
     ("mark.pane.search", "Tìm kiếm"),

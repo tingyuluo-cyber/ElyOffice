@@ -7,32 +7,36 @@ use std::{
 };
 
 use ely_gpui_component::{
-    buttons::SegmentedControl,
     feedback::EmptyState,
     forms::TextInput,
     primitives::IconName,
-    shell::{StatusBar, StatusBarItem},
-    theme::ControlSize,
     typography::tabular,
 };
 use ely_office::{Core, Host, Kind, prelude::*};
 use ely_platform::{AppId, startup};
 use ely_ui::{Root, Shell, commands, i18n::text};
 use gpui::{
-    App, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement,
-    ParentElement as _, PathPromptOptions, Render, SharedString, Styled as _, Window, div,
+    App, AppContext as _, Context, Entity, ExternalPaths, InteractiveElement as _, IntoElement,
+    ParentElement as _, Render, Styled as _, Task, Window, div, px,
 };
 
 use crate::engine::Mark;
-use crate::view::{MarkView, Mode};
+use crate::reimu;
+use crate::view::{DroppedPaths, MarkView, Mode};
+
+mod status;
 
 pub struct Desk {
     pub core: Core<Desk>,
+    pub(crate) reimu: bool,
+    welcome_art: Option<reimu::art::Art>,
     /// The tab being renamed and its name field.
     pub naming: Option<(u64, Entity<TextInput>)>,
     /// The export dialog's tab and format.
     pub exporting: Option<(u64, crate::output::Format)>,
     pub folder: Option<crate::folder::Folder>,
+    pub(crate) listing_folder: Option<Task<()>>,
+    pub(crate) folder_dirty: bool,
     /// Folder listings so far; searches redo on a new one.
     pub listings: u64,
     /// Files and folders opened lately, newest first.
@@ -82,6 +86,14 @@ impl Host for Desk {
 
     fn core_mut(&mut self) -> &mut Core<Self> {
         &mut self.core
+    }
+
+    fn tab_opened(&mut self, id: u64, cx: &mut Context<Self>) {
+        let view = self.tab(id).expect("the opened tab").view.clone();
+        cx.subscribe(&view, move |desk, _, dropped: &DroppedPaths, cx| {
+            desk.open_dropped(&dropped.0, Some(id), cx);
+        })
+        .detach();
     }
 
     /// A quit records the open tabs first.
@@ -163,6 +175,9 @@ impl Host for Desk {
 pub fn open(app: AppId, window: &mut Window, cx: &mut App) -> Entity<Root> {
     let data = ely_platform::data_dir(app)
         .unwrap_or_else(|error| startup::fail(app, &format!("{error:#}")));
+    if reimu::enabled() && let Err(error) = reimu::appearance::install(cx) {
+        startup::fail(app, &format!("{error:#}"));
+    }
     open_in(app, data, window, cx).0
 }
 
@@ -175,7 +190,8 @@ pub(crate) fn open_in(
 ) -> (Entity<Root>, Entity<Desk>) {
     let fail = |error: String| -> ! { startup::fail(app, &error) };
     let work = ely_office::fresh_work(&data).unwrap_or_else(|error| fail(format!("{error}")));
-    crate::keys::bind(cx);
+    let reimu = reimu::enabled();
+    crate::keys::bind(reimu, cx);
     let recent_file = data.join("recent.json");
     let look_file = data.join("look.json");
     // An unreadable look is reported; the default shows.
@@ -195,9 +211,13 @@ pub(crate) fn open_in(
         let side = cx.new(|cx| crate::side::Side::new(&this, window, cx));
         Desk {
             core: Core::new(Arc::new(Mutex::new(())), <Mark as ely_office::Engine>::stopper(&()), work, cx),
+            reimu,
+            welcome_art: None,
             naming: None,
             exporting: None,
             folder: None,
+            listing_folder: None,
+            folder_dirty: false,
             listings: 0,
             recent,
             recent_file,
@@ -221,11 +241,11 @@ pub(crate) fn open_in(
         }
     });
     crate::remote::listen(&desk, cx);
-    let menus = crate::keys::menus(&look, cx);
+    let menus = crate::keys::menus(&look, reimu, cx);
     let root = ely_ui::document_root(
         app,
         desk.clone().into(),
-        &commands::RENAMING,
+        crate::keys::file(reimu),
         menus,
         window,
         cx,
@@ -321,32 +341,6 @@ impl Desk {
         self.active_tab().map(|tab| tab.view.clone())
     }
 
-    /// Asks for files; each opens in its own tab.
-    fn open_picked(&mut self, _: &commands::Open, _: &mut Window, cx: &mut Context<Self>) {
-        let picked = cx.prompt_for_paths(PathPromptOptions {
-            files: true,
-            directories: true,
-            multiple: true,
-            prompt: None,
-        });
-        cx.spawn(async move |this, cx| {
-            let picked = match picked.await {
-                Ok(Ok(paths)) => Ok(paths),
-                Ok(Err(error)) => Err(error.to_string()),
-                Err(error) => Err(error.to_string()),
-            };
-            let done = this.update(cx, |desk, cx| match picked {
-                Ok(Some(paths)) => paths.into_iter().for_each(|path| desk.open_path(path, cx)),
-                Ok(None) => log::info!("mark: the open panel was cancelled"),
-                Err(error) => desk.panel_failed(&error, cx),
-            });
-            if done.is_err() {
-                log::info!("mark: the window closed before the panel");
-            }
-        })
-        .detach();
-    }
-
     /// An empty untitled file (MARK-01).
     fn on_new(&mut self, _: &commands::New, _: &mut Window, cx: &mut Context<Self>) {
         self.new_from_text("untitled.md", "", cx);
@@ -375,57 +369,17 @@ impl Desk {
         })
         .detach();
     }
-
-    /// The caret's line and column, from one, in every mode.
-    pub(crate) fn caret_said(&self, cx: &App) -> Option<SharedString> {
-        let view = self.active_view()?;
-        let (line, column) = view.read(cx).document().read(cx).caret(cx);
-        let (line, column) = ((line + 1).to_string(), (column + 1).to_string());
-        Some(text(cx, "mark.caret", &[("line", &line), ("column", &column)]))
-    }
-
-    fn status(&self, cx: &mut Context<Self>) -> StatusBar {
-        let state = StatusBarItem::new("mark-state").label(self.save_state(cx));
-        let Some(view) = self.active_view() else {
-            return StatusBar::new().left(state);
-        };
-        let git = self.git_item(cx);
-        let this = cx.entity();
-        let modes = Mode::ALL.into_iter().fold(
-            SegmentedControl::new("mark-mode", view.read(cx).mode.name()).size(ControlSize::Sm),
-            |control, mode| {
-                let icon = match mode {
-                    Mode::Visual => IconName::PenLine,
-                    Mode::Source => IconName::Code,
-                    Mode::Preview => IconName::Eye,
-                };
-                control.segment(mode.name(), crate::keys::label(mode, cx), Some(icon))
-            },
-        );
-        let modes = modes.on_change(move |key, window, cx| {
-            if let Some(mode) = Mode::parse(key) {
-                this.update(cx, |desk, cx| desk.switch(mode, window, cx));
-            }
-        });
-        let bar = StatusBar::new().left(state);
-        let bar = match git {
-            Some(git) => bar.left(git),
-            None => bar,
-        };
-        let caret = self.caret_said(cx).expect("a tab");
-        let bar = match self.count_item(cx) {
-            Some(count) => bar.right(count),
-            None => bar,
-        };
-        bar.right(StatusBarItem::new("mark-caret").label(caret)).right(modes)
-    }
 }
 
 impl Render for Desk {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.count_selection(cx);
         let tab = self.active_tab();
-        let title = tab.map_or_else(|| AppId::Mark.name().into(), |tab| tab.name.clone());
+        let welcome = self.reimu && self.core.tabs.is_empty() && self.core.loading.is_empty();
+        let name = if self.reimu { reimu::NAME } else { AppId::Mark.name() };
+        let title = tab.map_or_else(|| name.into(), |tab| tab.name.clone());
+        let mode = tab.map(|tab| tab.view.read(cx).mode);
+        let art = reimu::art::Art::for_mode(cx);
         let body = match tab {
             Some(tab) => div()
                 .size_full()
@@ -436,25 +390,58 @@ impl Render for Desk {
                 // Digits keep one width, so columns line up.
                 .child(tabular(div().flex_1().min_h_0()).child(tab.view.clone()))
                 .into_any_element(),
+            None if self.reimu => {
+                let desk = cx.entity();
+                let pick = move |art, cx: &mut App| desk.update(cx, |desk, cx| {
+                    desk.welcome_art = Some(art);
+                    cx.notify();
+                });
+                reimu::welcome(self.welcome_art.unwrap_or(art), pick, cx).into_any_element()
+            }
             None => {
                 let none = text(cx, "command.blocked.no_document", &[]);
                 EmptyState::new("mark-empty", IconName::File, none).into_any_element()
             }
         };
-        // Focus mode folds tabs, side and status away.
-        let shell = match self.look.focus {
-            true => Shell::new(title, &self.core.focus),
-            false => Shell::new(title, &self.core.focus)
-                .tabs(self.tabs(cx))
-                .left(Some(self.side.clone().into()))
-                .status(self.status(cx)),
+        let minimap = self.reimu && self.look.minimap && !self.look.focus
+            && reimu::minimap::fits(window, cx);
+        let body = if self.reimu && mode.is_some() && !self.look.focus {
+            let map = self.active_view().filter(|_| minimap).map(|view| reimu::minimap::panel(view, window, cx));
+            reimu::paper(body, map, cx).into_any_element()
+        } else {
+            body
+        };
+        let mut shell = Shell::new(title, &self.core.focus);
+        let side = !self.look.focus && (!welcome || self.folder.is_some() || !self.recent.is_empty());
+        if self.reimu {
+            let tools = if self.look.focus { None } else { mode };
+            let wide = if mode == Some(Mode::Preview) { self.look.wide_preview } else { self.look.wide_edit };
+            shell = shell.rail(px(48.0), reimu::rail(tools, side, minimap, wide, window, cx));
+            if mode.is_some() && !self.look.focus {
+                if let Some(wallpaper) = reimu::wallpaper(art, minimap, cx) {
+                    shell = shell.workspace_decoration(wallpaper);
+                }
+            }
         }
-        .child(body);
+        if side {
+            shell = shell.left(Some(self.side.clone().into()));
+        }
+        if !self.look.focus && !welcome {
+            shell = shell.status(self.status(cx));
+            if !self.reimu {
+                shell = shell.tabs(self.tabs(cx));
+            }
+        }
+        let shell = shell.child(body);
         let root = div()
             .size_full()
             .key_context(commands::CONTEXT)
             .track_focus(&self.core.focus)
-            .on_action(cx.listener(Self::open_picked))
+            .on_action(cx.listener(|desk, _: &commands::Open, _, cx| desk.pick_paths(false, cx)))
+            .on_action(cx.listener(|desk, _: &commands::OpenFolder, _, cx| desk.pick_paths(true, cx)))
+            .on_drop(cx.listener(|desk, dropped: &ExternalPaths, _, cx| {
+                desk.open_dropped(dropped.paths(), None, cx);
+            }))
             .on_action(cx.listener(Self::on_new))
             .on_action(cx.listener(Self::on_save))
             .on_action(cx.listener(Self::on_save_as))

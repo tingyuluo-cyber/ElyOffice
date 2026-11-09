@@ -11,6 +11,7 @@ actions!(
     [
         New,
         Open,
+        OpenFolder,
         Save,
         SaveAs,
         Rename,
@@ -89,6 +90,12 @@ const OPEN: Command = Command {
     blocked: None,
     action: || Box::new(Open),
 };
+pub const OPEN_FOLDER: Command = Command {
+    id: "file.open_folder",
+    keys: secondary!("shift-o"),
+    blocked: None,
+    action: || Box::new(OpenFolder),
+};
 const SAVE: Command = Command {
     id: "file.save",
     keys: secondary!("s"),
@@ -123,6 +130,14 @@ const PRINT: Command = Command {
 pub const FILE: [&Command; 6] = [&NEW, &OPEN, &SAVE, &SAVE_AS, &EXPORT, &PRINT];
 /// A document app that also renames its files.
 pub const RENAMING: [&Command; 7] = [&NEW, &OPEN, &SAVE, &SAVE_AS, &RENAME, &EXPORT, &PRINT];
+pub const MARKDOWN: [&Command; 8] = [
+    &NEW, &OPEN, &OPEN_FOLDER, &SAVE, &SAVE_AS, &RENAME, &EXPORT, &PRINT,
+];
+pub const SIDE_EXPORT_KEYS: &str = secondary!("alt-e");
+pub const MARKDOWN_SIDE: [&Command; 8] = [
+    &NEW, &OPEN, &OPEN_FOLDER, &SAVE, &SAVE_AS, &RENAME,
+    &Command { keys: SIDE_EXPORT_KEYS, ..EXPORT }, &PRINT,
+];
 /// A tool that starts and opens, but saves nothing itself.
 pub const OPENING: [&Command; 2] = [&NEW, &OPEN];
 pub const TOGGLE_PALETTE: &str = secondary!("shift-p");
@@ -218,8 +233,8 @@ pub fn right_panel_item(cx: &App) -> MenuItem {
     MenuItem::action(i18n::text(cx, "menu.view.right", &[]), ToggleRightPanel)
 }
 
-pub fn run(id: &str, window: &mut Window, cx: &mut App) {
-    match RENAMING.iter().find(|command| command.id == id) {
+pub fn run(file: &[&Command], id: &str, window: &mut Window, cx: &mut App) {
+    match file.iter().find(|command| command.id == id) {
         Some(command) => window.dispatch_action((command.action)(), cx),
         None => log::warn!("commands: {id} is not a command"),
     }

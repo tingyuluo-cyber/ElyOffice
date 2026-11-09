@@ -25,6 +25,8 @@ pub struct Kept {
     path: Option<PathBuf>,
     name: String,
     mode: Mode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    editing_mode: Option<Mode>,
     place: Option<Place>,
     slot: String,
 }
@@ -249,6 +251,9 @@ impl Desk {
         cx.spawn(async move |desk, cx| {
             let shown = ely_office::in_window(&desk, cx, |_, window, cx| {
                 view.update(cx, |view, cx| {
+                    if let Some(editing) = kept.editing_mode.filter(|mode| *mode != Mode::Preview) {
+                        view.editing_mode = editing;
+                    }
                     view.reopen(mode, kept.place, back, window, cx)
                 })
             });
@@ -299,6 +304,7 @@ impl Desk {
                 path: tab.session.path().map(Path::to_path_buf),
                 name: tab.name.to_string(),
                 mode: view.mode,
+                editing_mode: (view.mode == Mode::Preview).then_some(view.editing_mode),
                 place: Some(view.place(cx)),
                 slot: tab.extra.slot.clone(),
             });

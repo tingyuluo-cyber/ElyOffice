@@ -27,6 +27,9 @@ actions!(
         Narrow,
         Medium,
         Wide,
+        WideEdit,
+        WidePreview,
+        ToggleMinimap,
         Sans,
         Serif,
         Mono,
@@ -61,6 +64,12 @@ pub struct Look {
     pub focus: bool,
     pub typewriter: bool,
     pub width: Width,
+    #[serde(default)]
+    pub wide_edit: bool,
+    #[serde(default)]
+    pub wide_preview: bool,
+    #[serde(default = "shown")]
+    pub minimap: bool,
     pub font: Font,
     /// Percent of the app's text size.
     pub size: u32,
@@ -79,6 +88,9 @@ impl Default for Look {
             focus: false,
             typewriter: false,
             width: Width::Medium,
+            wide_edit: false,
+            wide_preview: false,
+            minimap: true,
             font: Font::Sans,
             size: 100,
             line_numbers: true,
@@ -95,7 +107,7 @@ const SERIF: &str = if cfg!(target_os = "linux") {
 
 impl Look {
     /// How the document shows text by this look.
-    pub fn document(&self, cx: &App) -> DocumentLook {
+    pub fn document(&self, reimu: bool, cx: &App) -> DocumentLook {
         let measure = match self.width {
             Width::Narrow => 36.0,
             Width::Medium => 48.0,
@@ -112,7 +124,7 @@ impl Look {
             typewriter: self.typewriter,
             measure: Some(rems(measure)),
             font,
-            scale: self.size as f32 / 100.0,
+            scale: self.size as f32 / 100.0 * if reimu { 1.1 } else { 1.0 },
             line_numbers: self.line_numbers,
         }
     }
@@ -144,10 +156,10 @@ impl Desk {
             self.toast(said, Severity::Danger, cx);
         }
         self.apply_look(cx);
-        let menus = crate::keys::menus(&self.look, cx);
+        let menus = crate::keys::menus(&self.look, self.reimu, cx);
         ely_ui::set_document_menus(
             ely_platform::AppId::Mark,
-            &ely_ui::commands::RENAMING,
+            crate::keys::file(self.reimu),
             menus,
             cx,
         );
@@ -156,27 +168,24 @@ impl Desk {
 
     /// Every tab's document takes the look.
     fn apply_look(&mut self, cx: &mut Context<Self>) {
-        let look = self.look.document(cx);
-        let documents: Vec<_> = self
-            .core
-            .tabs
-            .iter()
-            .map(|tab| tab.view.read(cx).document().clone())
-            .collect();
-        for document in documents {
-            document.update(cx, |document, cx| document.set_look(look.clone(), cx));
+        let look = self.look.document(self.reimu, cx);
+        let edit = self.reimu && self.look.wide_edit;
+        let preview = self.reimu && self.look.wide_preview;
+        for tab in &self.core.tabs {
+            tab.view.update(cx, |view, cx| view.set_look(look.clone(), edit, preview, cx));
         }
     }
 
     /// A new tab's document takes the look once.
     pub fn look_once(&mut self, id: u64, cx: &mut Context<Self>) {
-        let look = self.look.document(cx);
+        let look = self.look.document(self.reimu, cx);
+        let edit = self.reimu && self.look.wide_edit;
+        let preview = self.reimu && self.look.wide_preview;
         let Some(tab) = self.tab_mut(id).filter(|tab| !tab.extra.looked) else {
             return;
         };
         tab.extra.looked = true;
-        let document = tab.view.read(cx).document().clone();
-        document.update(cx, |document, cx| document.set_look(look, cx));
+        tab.view.update(cx, |view, cx| view.set_look(look, edit, preview, cx));
     }
 
     pub fn look_actions(element: gpui::Div, cx: &mut Context<Self>) -> gpui::Div {
@@ -203,6 +212,15 @@ impl Desk {
                     desk.relook(|look| look.width = Width::Wide, cx)
                 }),
             )
+            .on_action(cx.listener(|desk, _: &WideEdit, _, cx| {
+                desk.relook(|look| look.wide_edit = !look.wide_edit, cx)
+            }))
+            .on_action(cx.listener(|desk, _: &WidePreview, _, cx| {
+                desk.relook(|look| look.wide_preview = !look.wide_preview, cx)
+            }))
+            .on_action(cx.listener(|desk, _: &ToggleMinimap, _, cx| {
+                desk.relook(|look| look.minimap = !look.minimap, cx)
+            }))
             .on_action(
                 cx.listener(|desk, _: &Sans, _, cx| desk.relook(|look| look.font = Font::Sans, cx)),
             )

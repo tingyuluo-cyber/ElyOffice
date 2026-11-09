@@ -1,6 +1,15 @@
 //! German ElyMark messages.
 
 pub(super) const DE: &[(&str, &str)] = &[
+    ("mark.tabs.open", "Offene Tabs"),
+    ("mark.look.wide_edit", "Breites Bearbeiten"),
+    ("mark.look.wide_preview", "Breite Vorschau"),
+    ("mark.look.minimap", "Dokumentübersicht"),
+    ("mark.art.reimu", "Reimu Hakurei"),
+    ("mark.art.yukari", "Yukari Yakumo"),
+    ("mark.view.reading", "Leseansicht umschalten"),
+    ("command.file.open_folder", "Ordner öffnen…"),
+    ("mark.drop.markdown", "Markdown-Dateien (.md oder .markdown) oder Ordner hierher ziehen."),
     ("mark.pane.files", "Dateien"),
     ("mark.pane.outline", "Gliederung"),
     ("mark.pane.search", "Suchen"),

@@ -7,13 +7,16 @@ use std::{
     time::Duration,
 };
 
-use ely_gpui_component::primitives::Severity;
+use ely_gpui_component::{documents::Attachment, primitives::Severity};
 use ely_office::prelude::*;
-use ely_ui::i18n::text;
-use gpui::{AppContext as _, Context, Window};
+use ely_ui::{i18n::text, settings::panels};
+use gpui::{AppContext as _, Context, PathPromptOptions, Window};
 
 use crate::desk::Desk;
-use crate::folder::{Folder, markdown_under};
+use crate::folder::{Folder, markdown, markdown_under};
+
+#[cfg(test)]
+mod tests;
 
 /// How long a failed recent-list entry waits to retry.
 pub(crate) const RETRY: Duration = Duration::from_secs(30);
@@ -42,11 +45,100 @@ pub(crate) fn record(file: &Path, path: &Path, old: Option<PathBuf>) -> io::Resu
 }
 
 impl Desk {
+    pub(crate) fn pick_paths(&mut self, folders: bool, cx: &mut Context<Self>) {
+        let picked = cx.prompt_for_paths(PathPromptOptions {
+            files: !folders,
+            directories: folders || cx.can_select_mixed_files_and_dirs(),
+            multiple: !folders,
+            prompt: None,
+        });
+        cx.spawn(async move |this, cx| {
+            let picked = match picked.await {
+                Ok(Ok(paths)) => Ok(paths),
+                Ok(Err(error)) => Err(error.to_string()),
+                Err(error) => Err(error.to_string()),
+            };
+            let done = this.update(cx, |desk, cx| match picked {
+                Ok(Some(paths)) => {
+                    for path in paths {
+                        if folders {
+                            desk.open_folder(path, cx);
+                        } else {
+                            desk.open_path(path, cx);
+                        }
+                    }
+                }
+                Ok(None) => log::info!("mark: the open panel was cancelled"),
+                Err(error) => desk.panel_failed(&error, cx),
+            });
+            if done.is_err() {
+                log::info!("mark: the window closed before the panel");
+            }
+        })
+        .detach();
+    }
+
+    pub(crate) fn open_dropped(
+        &mut self,
+        paths: &[PathBuf],
+        document: Option<u64>,
+        cx: &mut Context<Self>,
+    ) {
+        let paths = paths.to_vec();
+        cx.spawn(async move |desk, cx| {
+            let (opening, attachments) = cx
+                .background_spawn(async move {
+                    let mut opening = Vec::new();
+                    let mut attachments = Vec::new();
+                    for path in paths {
+                        let directory = path.is_dir();
+                        if directory || markdown(&path) {
+                            opening.push((path, directory));
+                        } else {
+                            attachments.push(path);
+                        }
+                    }
+                    (opening, attachments)
+                })
+                .await;
+            desk.update(cx, |desk, cx| {
+                log::info!("mark: opens {} dropped paths", opening.len());
+                if !attachments.is_empty() {
+                    match document {
+                        Some(id) => {
+                            if let Some(tab) = desk.tab(id) {
+                                tab.view.update(cx, |view, cx| {
+                                    view.attach(&Attachment::Files(attachments), cx);
+                                });
+                            }
+                        }
+                        None => {
+                            desk.toast(text(cx, "mark.drop.markdown", &[]), Severity::Warning, cx);
+                        }
+                    }
+                }
+                for (path, directory) in opening {
+                    if directory {
+                        desk.open_folder(path, cx);
+                    } else {
+                        desk.open_note(path, cx);
+                    }
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
     /// A folder lists beside; a file opens in a tab.
     pub fn open_path(&mut self, path: PathBuf, cx: &mut Context<Self>) {
         if path.is_dir() {
             return self.open_folder(path, cx);
         }
+        self.open_note(path, cx);
+    }
+
+    fn open_note(&mut self, path: PathBuf, cx: &mut Context<Self>) {
         // A shown file only takes focus; the list still learns.
         let shown = self.core.sessions.is_open(&path).unwrap_or(false);
         self.open_file(path.clone(), cx);
@@ -57,8 +149,12 @@ impl Desk {
 
     /// Lists `root`'s Markdown files off the window (MARK-01).
     pub fn open_folder(&mut self, root: PathBuf, cx: &mut Context<Self>) {
+        self.list_folder(root, true, cx);
+    }
+
+    fn list_folder(&mut self, root: PathBuf, reveal: bool, cx: &mut Context<Self>) {
         log::info!("mark: opens folder {}", root.display());
-        cx.spawn(async move |desk, cx| {
+        self.listing_folder = Some(cx.spawn(async move |desk, cx| {
             let listed = root.clone();
             // The real root: listed files compare with tabs' paths.
             let files = cx
@@ -68,33 +164,47 @@ impl Desk {
                     Ok::<_, std::io::Error>((markdown_under(&real)?, real))
                 })
                 .await;
-            desk.update(cx, |desk, cx| match files {
-                Ok((files, real)) => {
-                    desk.remember(&real, cx);
-                    desk.folder = Some(Folder { root: real, files });
-                    desk.listings += 1;
-                    cx.notify();
+            desk.update(cx, |desk, cx| {
+                desk.listing_folder = None;
+                match files {
+                    Ok((files, real)) => {
+                        desk.remember(&real, cx);
+                        desk.folder = Some(Folder { root: real, files });
+                        desk.listings += 1;
+                        if reveal {
+                            if desk.look.focus {
+                                desk.relook(|look| look.focus = false, cx);
+                            }
+                            panels::show(true, true, cx);
+                            desk.side.update(cx, |side, cx| side.show_files(cx));
+                        }
+                        cx.notify();
+                    }
+                    Err(error) => {
+                        log::error!("mark: {} did not list: {error}", root.display());
+                        let (name, error) = (root.display().to_string(), error.to_string());
+                        let said = text(
+                            cx,
+                            "office.error.open",
+                            &[("name", &name), ("error", &error)],
+                        );
+                        desk.toast(said, Severity::Danger, cx);
+                    }
                 }
-                Err(error) => {
-                    log::error!("mark: {} did not list: {error}", root.display());
-                    let (name, error) = (root.display().to_string(), error.to_string());
-                    let said = text(
-                        cx,
-                        "office.error.open",
-                        &[("name", &name), ("error", &error)],
-                    );
-                    desk.toast(said, Severity::Danger, cx);
+                if std::mem::take(&mut desk.folder_dirty) {
+                    desk.relist(cx);
                 }
             })
             .ok();
-        })
-        .detach();
+        }));
     }
 
     /// The open folder again, as the disk has it now.
     pub fn relist(&mut self, cx: &mut Context<Self>) {
-        if let Some(root) = self.folder.as_ref().map(|folder| folder.root.clone()) {
-            self.open_folder(root, cx);
+        if self.listing_folder.is_some() {
+            self.folder_dirty = true;
+        } else if let Some(folder) = &self.folder {
+            self.list_folder(folder.root.clone(), false, cx);
         }
     }
 

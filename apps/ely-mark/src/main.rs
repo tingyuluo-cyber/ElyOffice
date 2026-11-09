@@ -18,6 +18,7 @@ mod output;
 mod outside;
 mod paths;
 mod places;
+mod reimu;
 mod remote;
 mod rename;
 mod restore;

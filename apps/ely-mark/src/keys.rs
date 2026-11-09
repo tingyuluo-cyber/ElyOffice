@@ -8,15 +8,29 @@ use crate::{desk::Desk, view::Mode};
 
 actions!(
     mark,
-    [VisualMode, SourceMode, PreviewMode, ToggleSource, CheckDisk]
+    [
+        VisualMode,
+        SourceMode,
+        PreviewMode,
+        ToggleSource,
+        ToggleReading,
+        NextTab,
+        PreviousTab,
+        CheckDisk
+    ]
 );
 
-pub fn bind(cx: &mut App) {
+pub fn bind(reimu: bool, cx: &mut App) {
     let at = Some(commands::CONTEXT);
+    let source = if reimu {
+        secondary!("shift-e")
+    } else {
+        secondary!("/")
+    };
     cx.bind_keys([
-        KeyBinding::new(secondary!("/"), ToggleSource, at),
-        // Over the code editor's `//` toggle.
-        KeyBinding::new(secondary!("/"), ToggleSource, Some("ElyEditor")),
+        KeyBinding::new(commands::OPEN_FOLDER.keys, commands::OpenFolder, at),
+        KeyBinding::new(source, ToggleSource, at),
+        KeyBinding::new(source, ToggleSource, Some("ElyEditor")),
         KeyBinding::new("f8", crate::look::FocusMode, at),
         KeyBinding::new("f9", crate::look::Typewriter, at),
         KeyBinding::new(secondary!("+"), crate::look::Larger, at),
@@ -24,12 +38,28 @@ pub fn bind(cx: &mut App) {
         KeyBinding::new(secondary!(")"), crate::look::ActualSize, at),
         KeyBinding::new(secondary!("f"), ely_office::FindReplace, at),
     ]);
+    if reimu {
+        cx.bind_keys([
+            KeyBinding::new(secondary!("e"), ToggleReading, at),
+            KeyBinding::new(commands::SIDE_EXPORT_KEYS, commands::Export, at),
+            KeyBinding::new("ctrl-tab", NextTab, at),
+            KeyBinding::new("ctrl-shift-tab", PreviousTab, at),
+        ]);
+    }
     // Windows' Chinese input keeps Ctrl+Shift+0 for itself.
     #[cfg(target_os = "windows")]
     cx.bind_keys([KeyBinding::new("ctrl-(", crate::look::ActualSize, at)]);
     crate::blocks::bind(cx);
     crate::tools::bind(cx);
     crate::clip::bind(cx);
+}
+
+pub fn file(reimu: bool) -> &'static [&'static commands::Command] {
+    if reimu {
+        &commands::MARKDOWN_SIDE
+    } else {
+        &commands::MARKDOWN
+    }
 }
 
 /// The label of `mode`.
@@ -52,10 +82,25 @@ pub(crate) fn item(key: &str, action: Box<dyn Action>, cx: &App) -> MenuItem {
     checked(key, action, false, cx)
 }
 
-pub fn menus(look: &crate::look::Look, cx: &App) -> Vec<Menu> {
+pub fn menus(look: &crate::look::Look, reimu: bool, cx: &App) -> Vec<Menu> {
     use crate::look::{self, Font, Width};
     let checked = |key: &str, action: Box<dyn Action>, on: bool| checked(key, action, on, cx);
     let item = |key: &str, action: Box<dyn Action>| item(key, action, cx);
+    let reading = reimu
+        .then(|| {
+            [
+                item("mark.view.reading", Box::new(ToggleReading)),
+                checked("mark.look.wide_edit", Box::new(look::WideEdit), look.wide_edit),
+                checked(
+                    "mark.look.wide_preview",
+                    Box::new(look::WidePreview),
+                    look.wide_preview,
+                ),
+                checked("mark.look.minimap", Box::new(look::ToggleMinimap), look.minimap),
+            ]
+        })
+        .into_iter()
+        .flatten();
     vec![
         Menu::new(text(cx, "menu.edit", &[])).items([
             item("mark.copy.plain", Box::new(crate::export::CopyPlain)),
@@ -68,7 +113,7 @@ pub fn menus(look: &crate::look::Look, cx: &App) -> Vec<Menu> {
         ]),
         crate::blocks::paragraph_menu(cx),
         crate::blocks::format_menu(cx),
-        Menu::new(text(cx, "menu.view", &[])).items([
+        Menu::new(text(cx, "menu.view", &[])).items(reading.chain([
             item("mark.view.source", Box::new(ToggleSource)),
             MenuItem::action(label(Mode::Visual, cx), VisualMode),
             MenuItem::action(label(Mode::Source, cx), SourceMode),
@@ -129,11 +174,39 @@ pub fn menus(look: &crate::look::Look, cx: &App) -> Vec<Menu> {
             item("mark.look.smaller", Box::new(look::Smaller)),
             MenuItem::separator(),
             item("mark.outside.check", Box::new(CheckDisk)),
-        ]),
+        ])),
     ]
 }
 
 impl Desk {
+    fn step_tab(&mut self, step: isize, window: &mut gpui::Window, cx: &mut Context<Self>) {
+        use ely_office::Chrome as _;
+        let tabs: Vec<_> = self
+            .core
+            .tabs
+            .iter()
+            .map(|tab| tab.id)
+            .chain(self.core.loading.iter().map(|(id, ..)| *id))
+            .collect();
+        if let Some(active) = tabs.iter().position(|id| Some(*id) == self.core.active()) {
+            let next = (active as isize + step).rem_euclid(tabs.len() as isize) as usize;
+            self.show_tab(tabs[next], window, cx);
+        }
+    }
+
+    fn toggle_reading(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) {
+        let Some(view) = self.active_view() else {
+            return self.no_document(cx);
+        };
+        let view = view.read(cx);
+        let mode = if view.mode == Mode::Preview {
+            view.editing_mode
+        } else {
+            Mode::Preview
+        };
+        self.switch(mode, window, cx);
+    }
+
     /// Source and visual, as Typora's Source Code Mode.
     fn toggle_source(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) {
         let Some(view) = self.active_view() else {
@@ -148,6 +221,13 @@ impl Desk {
 
     pub fn mode_actions(root: gpui::Div, cx: &mut Context<Self>) -> gpui::Div {
         root.on_action(cx.listener(|desk, _: &CheckDisk, _, cx| desk.look_all(cx)))
+            .on_action(cx.listener(|desk, _: &NextTab, window, cx| desk.step_tab(1, window, cx)))
+            .on_action(
+                cx.listener(|desk, _: &PreviousTab, window, cx| desk.step_tab(-1, window, cx)),
+            )
+            .on_action(
+                cx.listener(|desk, _: &ToggleReading, window, cx| desk.toggle_reading(window, cx)),
+            )
             .on_action(
                 cx.listener(|desk, _: &ToggleSource, window, cx| desk.toggle_source(window, cx)),
             )
