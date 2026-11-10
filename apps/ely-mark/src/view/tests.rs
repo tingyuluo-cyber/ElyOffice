@@ -59,6 +59,51 @@ fn focused(view: &Entity<MarkView>, cx: &mut VisualTestContext) {
 }
 
 #[gpui::test]
+fn visual_typing_surrounds_the_selection_in_one_undo(cx: &mut TestAppContext) {
+    let original = "前 我是猫 后\n";
+    let (view, cx) = open(original, cx);
+    let picked = "前 ".len().."前 我是猫".len();
+    let document = view.read_with(cx, |view, _| view.document().clone());
+    document.update_in(cx, |document, window, cx| {
+        document.show_match(picked.clone(), window, cx);
+    });
+    cx.run_until_parked();
+    assert_eq!(document.read_with(cx, |doc, cx| doc.selected(cx)), "我是猫");
+    cx.simulate_keystrokes("shift-8->*");
+    assert_eq!(current(&view, cx), "前 *我是猫* 后\n");
+    cx.simulate_keystrokes(ely_gpui_component::secondary!("z"));
+    assert_eq!(current(&view, cx), original);
+
+    document.update_in(cx, |document, window, cx| document.show_match(picked, window, cx));
+    cx.run_until_parked();
+    cx.simulate_input("x");
+    assert_eq!(current(&view, cx), "前 x 后\n");
+}
+
+#[gpui::test]
+fn source_typing_surrounds_each_selection_and_types_at_bare_carets(cx: &mut TestAppContext) {
+    let original = "猫和狗\n";
+    let (view, cx) = open(original, cx);
+    view.update_in(cx, |view, window, cx| view.switch(Mode::Source, window, cx));
+    focused(&view, cx);
+    let editor = view.read_with(cx, |view, cx| view.document().read(cx).editor().clone());
+    editor.update(cx, |editor, cx| {
+        editor.select(
+            [0.."猫".len(), "猫和".len().."猫和狗".len(), original.len()..original.len()],
+            cx,
+        );
+    });
+    cx.simulate_input("[");
+    assert_eq!(current(&view, cx), "[猫]和[狗]\n[");
+    cx.simulate_keystrokes(ely_gpui_component::secondary!("z"));
+    assert_eq!(current(&view, cx), original);
+
+    editor.update(cx, |editor, cx| editor.select(std::iter::once(0..0), cx));
+    cx.simulate_input("*");
+    assert_eq!(current(&view, cx), "*猫和狗\n");
+}
+
+#[gpui::test]
 fn source_tab_indents_lines_and_keeps_the_selection(cx: &mut TestAppContext) {
     let original = "一行\n\nsecond\nthird\n";
     let (view, cx) = open(original, cx);

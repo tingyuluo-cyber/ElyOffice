@@ -436,6 +436,7 @@ impl Render for MarkView {
             .key_context("ElyMarkView")
             .track_focus(&self.focus)
             .on_action(cx.listener(|view, _: &IndentLines, _, cx| view.indent_lines(cx)))
+            .on_key_down(cx.listener(Self::surround_selection))
             .on_mouse_down(
                 MouseButton::Right,
                 cx.listener(|view, event, _, cx| view.pressed(event, cx)),
@@ -447,5 +448,6 @@ impl Render for MarkView {
 }
 
 mod menu;
+mod surround;
 #[cfg(test)]
 mod tests;
