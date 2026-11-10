@@ -30,6 +30,7 @@ actions!(
         WideEdit,
         WidePreview,
         ToggleMinimap,
+        SourceReading,
         Sans,
         Serif,
         Mono,
@@ -70,6 +71,8 @@ pub struct Look {
     pub wide_preview: bool,
     #[serde(default = "shown")]
     pub minimap: bool,
+    #[serde(default)]
+    pub source_reading: bool,
     pub font: Font,
     /// Percent of the app's text size.
     pub size: u32,
@@ -91,6 +94,7 @@ impl Default for Look {
             wide_edit: false,
             wide_preview: false,
             minimap: true,
+            source_reading: false,
             font: Font::Sans,
             size: 100,
             line_numbers: true,
@@ -220,6 +224,9 @@ impl Desk {
             }))
             .on_action(cx.listener(|desk, _: &ToggleMinimap, _, cx| {
                 desk.relook(|look| look.minimap = !look.minimap, cx)
+            }))
+            .on_action(cx.listener(|desk, _: &SourceReading, _, cx| {
+                desk.relook(|look| look.source_reading = !look.source_reading, cx)
             }))
             .on_action(
                 cx.listener(|desk, _: &Sans, _, cx| desk.relook(|look| look.font = Font::Sans, cx)),

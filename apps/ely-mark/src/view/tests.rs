@@ -59,6 +59,36 @@ fn focused(view: &Entity<MarkView>, cx: &mut VisualTestContext) {
 }
 
 #[gpui::test]
+fn source_tab_indents_lines_and_keeps_the_selection(cx: &mut TestAppContext) {
+    let original = "一行\n\nsecond\nthird\n";
+    let (view, cx) = open(original, cx);
+    cx.update(|_, cx| crate::keys::bind(false, cx));
+    view.update_in(cx, |view, window, cx| {
+        view.switch(Mode::Source, window, cx);
+        view.reveal((0, 1), window, cx);
+    });
+    focused(&view, cx);
+    cx.simulate_keystrokes("tab");
+    assert_eq!(current(&view, cx), "    一行\n\nsecond\nthird\n");
+    assert_eq!(view.read_with(cx, |view, cx| view.place(cx).column), 5);
+    cx.simulate_keystrokes("shift-tab");
+    assert_eq!(current(&view, cx), original);
+
+    let editor = view.read_with(cx, |view, cx| view.document().read(cx).editor().clone());
+    let start = "一".len();
+    let end = "一行\n\nsecond\n".len();
+    editor.update(cx, |editor, cx| {
+        editor.select([std::ops::Range { start: end, end: start }], cx);
+    });
+    cx.simulate_keystrokes("tab");
+    assert_eq!(current(&view, cx), "    一行\n\n    second\nthird\n");
+    let kept = editor.read_with(cx, |editor, _| editor.primary());
+    assert_eq!((kept.anchor, kept.head), (end + 8, start + 4));
+    cx.simulate_keystrokes(ely_gpui_component::secondary!("z"));
+    assert_eq!(current(&view, cx), original);
+}
+
+#[gpui::test]
 fn switching_modes_writes_no_byte(cx: &mut TestAppContext) {
     let (view, cx) = open("# A\r\n\r\n* b\r\n", cx);
     for mode in [Mode::Source, Mode::Preview, Mode::Visual, Mode::Source] {

@@ -8,6 +8,7 @@ pub(super) const VI: &[(&str, &str)] = &[
     ("mark.art.reimu", "Reimu Hakurei"),
     ("mark.art.yukari", "Yukari Yakumo"),
     ("mark.view.reading", "Chuyển chế độ đọc"),
+    ("mark.look.source_reading", "Phím tắt chuyển giữa mã nguồn và chế độ đọc"),
     ("command.file.open_folder", "Mở thư mục…"),
     ("mark.drop.markdown", "Thả tệp Markdown (.md hoặc .markdown) hoặc thư mục."),
     ("mark.pane.files", "Tệp tin"),

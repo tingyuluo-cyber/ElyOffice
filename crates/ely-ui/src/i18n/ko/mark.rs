@@ -8,6 +8,7 @@ pub(super) const KO: &[(&str, &str)] = &[
     ("mark.art.reimu", "하쿠레이 레이무"),
     ("mark.art.yukari", "야쿠모 유카리"),
     ("mark.view.reading", "읽기 보기 전환"),
+    ("mark.look.source_reading", "단축키로 소스와 읽기 보기 전환"),
     ("command.file.open_folder", "폴더 열기…"),
     ("mark.drop.markdown", "Markdown 파일(.md 또는 .markdown)이나 폴더를 놓으세요."),
     ("mark.pane.files", "파일"),

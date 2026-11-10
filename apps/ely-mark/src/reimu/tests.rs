@@ -213,6 +213,37 @@ fn reading_returns_to_the_editing_mode_and_width(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn reading_shortcut_can_toggle_source_directly(cx: &mut TestAppContext) {
+    let data = tempfile::tempdir().expect("profile");
+    let path = data.path().join("note.md");
+    std::fs::write(&path, "# Note\n").expect("sample note");
+    let (desk, cx) = desk::tests::start(cx, data.path());
+    cx.update(|_, cx| crate::keys::bind(true, cx));
+    desk.update(cx, |desk, cx| {
+        desk.reimu = true;
+        cx.notify();
+    });
+    desk::tests::open(&desk, &path, cx);
+    let view = desk.read_with(cx, |desk, _| desk.active_view().expect("opened note"));
+    let seen = |cx: &mut VisualTestContext| view.read_with(cx, |view, _| view.mode);
+    assert_eq!(seen(cx), Mode::Visual);
+    cx.simulate_keystrokes(secondary!("e"));
+    assert_eq!(seen(cx), Mode::Preview);
+    cx.simulate_keystrokes(secondary!("e"));
+    assert_eq!(seen(cx), Mode::Visual);
+
+    cx.update(|window, cx| window.dispatch_action(Box::new(crate::look::SourceReading), cx));
+    for mode in [Mode::Source, Mode::Preview, Mode::Source] {
+        cx.simulate_keystrokes(secondary!("e"));
+        assert_eq!(seen(cx), mode);
+    }
+    cx.simulate_keystrokes(secondary!("shift-e"));
+    assert_eq!(seen(cx), Mode::Visual);
+    assert!(crate::look::load(&data.path().join("look.json")).expect("saved look").source_reading);
+    assert!(!view.read_with(cx, |view, _| view.modified()));
+}
+
+#[gpui::test]
 fn the_short_source_minimap_uses_the_whole_drag_range(cx: &mut TestAppContext) {
     let data = tempfile::tempdir().expect("profile");
     let path = data.path().join("long.md");

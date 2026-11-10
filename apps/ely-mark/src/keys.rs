@@ -52,6 +52,11 @@ pub fn bind(reimu: bool, cx: &mut App) {
     crate::blocks::bind(cx);
     crate::tools::bind(cx);
     crate::clip::bind(cx);
+    cx.bind_keys([KeyBinding::new(
+        "tab",
+        crate::view::IndentLines,
+        Some("ElyMarkView > ElyEditor"),
+    )]);
 }
 
 pub fn file(reimu: bool) -> &'static [&'static commands::Command] {
@@ -90,6 +95,11 @@ pub fn menus(look: &crate::look::Look, reimu: bool, cx: &App) -> Vec<Menu> {
         .then(|| {
             [
                 item("mark.view.reading", Box::new(ToggleReading)),
+                checked(
+                    "mark.look.source_reading",
+                    Box::new(look::SourceReading),
+                    look.source_reading,
+                ),
                 checked("mark.look.wide_edit", Box::new(look::WideEdit), look.wide_edit),
                 checked(
                     "mark.look.wide_preview",
@@ -199,10 +209,10 @@ impl Desk {
             return self.no_document(cx);
         };
         let view = view.read(cx);
-        let mode = if view.mode == Mode::Preview {
-            view.editing_mode
-        } else {
-            Mode::Preview
+        let mode = match (self.look.source_reading, view.mode) {
+            (true, Mode::Visual | Mode::Preview) => Mode::Source,
+            (false, Mode::Preview) => view.editing_mode,
+            _ => Mode::Preview,
         };
         self.switch(mode, window, cx);
     }

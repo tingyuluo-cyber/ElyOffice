@@ -8,6 +8,7 @@ pub(super) const ES: &[(&str, &str)] = &[
     ("mark.art.reimu", "Reimu Hakurei"),
     ("mark.art.yukari", "Yukari Yakumo"),
     ("mark.view.reading", "Alternar vista de lectura"),
+    ("mark.look.source_reading", "Alternar entre código fuente y vista de lectura"),
     ("command.file.open_folder", "Abrir carpeta…"),
     ("mark.drop.markdown", "Suelta archivos Markdown (.md o .markdown) o carpetas."),
     ("mark.pane.files", "Archivos"),
