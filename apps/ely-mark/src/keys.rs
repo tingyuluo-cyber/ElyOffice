@@ -52,11 +52,6 @@ pub fn bind(reimu: bool, cx: &mut App) {
     crate::blocks::bind(cx);
     crate::tools::bind(cx);
     crate::clip::bind(cx);
-    cx.bind_keys([KeyBinding::new(
-        "tab",
-        crate::view::IndentLines,
-        Some("ElyMarkView > ElyEditor"),
-    )]);
 }
 
 pub fn file(reimu: bool) -> &'static [&'static commands::Command] {
@@ -100,13 +95,21 @@ pub fn menus(look: &crate::look::Look, reimu: bool, cx: &App) -> Vec<Menu> {
                     Box::new(look::SourceReading),
                     look.source_reading,
                 ),
-                checked("mark.look.wide_edit", Box::new(look::WideEdit), look.wide_edit),
+                checked(
+                    "mark.look.wide_edit",
+                    Box::new(look::WideEdit),
+                    look.wide_edit,
+                ),
                 checked(
                     "mark.look.wide_preview",
                     Box::new(look::WidePreview),
                     look.wide_preview,
                 ),
-                checked("mark.look.minimap", Box::new(look::ToggleMinimap), look.minimap),
+                checked(
+                    "mark.look.minimap",
+                    Box::new(look::ToggleMinimap),
+                    look.minimap,
+                ),
             ]
         })
         .into_iter()

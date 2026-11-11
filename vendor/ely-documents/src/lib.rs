@@ -86,7 +86,7 @@ pub fn bind_keys(cx: &mut App) {
 }
 
 /// Core's test setup with this chapter's keys.
-#[cfg(all(test, feature = "test-support"))]
+#[cfg(test)]
 fn init_for_tests(cx: &mut gpui::App) {
     ely_core::init_for_tests(cx);
     editor::bind_keys(cx);

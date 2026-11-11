@@ -9,3 +9,5 @@
 - 界面以布局和清晰的主操作为主。次要信息优先放入 tooltip。保留可访问名称、表单标签、键盘焦点和危险操作后果提示。
 - 复用组件库，避免大框套小框。失败显示原因，日志不写正文、附件和凭证。代码文件不超过 500 行。
 - 保留 main 历史，提交签名。每条任务独立审查。
+
+- Markdown list keys live in the vendored, pinned `ely-documents` component via a Git dependency patch. Source and visual editing share their behavior. Run `cargo test --locked -p ely-documents --features test-support` after changes. See `docs/markdown-lists.md`.

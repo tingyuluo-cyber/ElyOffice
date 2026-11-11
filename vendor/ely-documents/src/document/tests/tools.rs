@@ -40,6 +40,19 @@ fn tab_shifts_a_block_line_in_and_out(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn visual_numbered_lists_use_the_same_smart_keys(cx: &mut TestAppContext) {
+    let (document, cx) = open("1. parent\n", MarkdownMode::Visual, cx);
+    press(0, Modifiers::none(), cx);
+    cx.simulate_keystrokes("enter tab");
+    assert_eq!(opened(&document, cx), "1. parent\n    1. ");
+    cx.simulate_input("child");
+    cx.simulate_keystrokes("enter enter");
+    assert_eq!(opened(&document, cx), "1. parent\n    1. child\n2. ");
+    cx.simulate_keystrokes("shift-tab");
+    assert_eq!(opened(&document, cx), "1. parent\n    1. child\n2. ");
+}
+
+#[gpui::test]
 fn a_table_edit_is_one_undo_step_at_the_caret(cx: &mut TestAppContext) {
     let (document, cx) = open("| A |\n| - |\n| 1 |\n", MarkdownMode::Source, cx);
     document.update(cx, |document, cx| document.set_caret(2, 2, cx));

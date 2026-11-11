@@ -20,7 +20,9 @@ use crate::{
 
 actions!(
     markdown_document,
-    [Undo, Redo, Indent, Outdent, Paste, LeaveNext, LeavePrev]
+    [
+        Undo, Redo, Indent, Outdent, Paste, LeaveNext, LeavePrev, SoftBreak
+    ]
 );
 
 const CONTEXT: &str = "MarkdownDocument";
@@ -81,6 +83,14 @@ pub(crate) fn bind_keys(cx: &mut App) {
         KeyBinding::new(ely_core::secondary!("v"), Paste, context),
         KeyBinding::new("tab", Indent, block),
         KeyBinding::new("shift-tab", Outdent, block),
+        KeyBinding::new("tab", Indent, Some("MarkdownDocument > ElyEditor")),
+        KeyBinding::new("shift-tab", Outdent, Some("MarkdownDocument > ElyEditor")),
+        KeyBinding::new("shift-enter", SoftBreak, block),
+        KeyBinding::new(
+            "shift-enter",
+            SoftBreak,
+            Some("MarkdownDocument > ElyEditor"),
+        ),
         // Out of the document, not to its next block.
         KeyBinding::new("f6", LeaveNext, context),
         KeyBinding::new("shift-f6", LeavePrev, context),
@@ -367,20 +377,15 @@ impl Render for MarkdownDocument {
         )
         .auto();
         let body = match self.mode {
-            MarkdownMode::Source => root
+            MarkdownMode::Source => Self::source_actions(root, cx)
                 .capture_action(cx.listener(|document, _: &crate::editor::Paste, _, cx| {
                     if document.paste_picture(cx) {
                         cx.stop_propagation();
                     }
                 }))
-                .capture_action(cx.listener(|document, _: &crate::editor::Newline, _, cx| {
-                    if document.source_newline(cx) {
-                        cx.stop_propagation();
-                    }
-                }))
                 .child(source)
                 .into_any_element(),
-            MarkdownMode::Split => root
+            MarkdownMode::Split => Self::source_actions(root, cx)
                 .flex()
                 .child(div().flex_1().min_w_0().h_full().child(self.editor.clone()))
                 .child(div().flex_1().min_w_0().h_full().child(blocks))
@@ -436,8 +441,15 @@ impl Render for MarkdownDocument {
                     }
                 }))
                 .capture_action(cx.listener(|document, _: &forms::Enter, _, cx| {
-                    if document.block_newline(cx) {
+                    if document.block_newline(false, cx) {
                         cx.stop_propagation();
+                    }
+                }))
+                .on_action(cx.listener(|document, _: &SoftBreak, _, cx| {
+                    if !document.block_newline(true, cx)
+                        && let Some(open) = &document.open
+                    {
+                        open.input.update(cx, |input, cx| input.insert("\n", cx));
                     }
                 }))
                 .on_action(cx.listener(|document, _: &Indent, window, cx| {

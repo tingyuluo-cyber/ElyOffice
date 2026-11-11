@@ -1,19 +1,18 @@
 //! One Markdown file, its text kept for the shell.
 
-use std::{ops::Range, path::PathBuf};
+use std::path::PathBuf;
 
 use ely_gpui_component::documents::{
-    Attachment, DocumentEvent, DocumentLook, EditRefusal, LARGEST_READ, MarkdownDocument, MarkdownMode,
+    Attachment, DocumentEvent, DocumentLook, EditRefusal, LARGEST_READ, MarkdownDocument,
+    MarkdownMode,
 };
 use gpui::{
     AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable as _,
     InteractiveElement as _, IntoElement, MouseButton, ParentElement as _, Render, Styled as _,
-    Window, actions, div,
+    Window, div,
 };
 
 use crate::engine::{Doc, mark};
-
-actions!(mark, [IndentLines]);
 
 /// The text changed, or a read is in.
 pub struct Reported;
@@ -376,45 +375,6 @@ impl MarkView {
         let said = ely_ui::i18n::text(cx, "office.link.refused", &[]).to_string();
         cx.emit(Failed(said));
     }
-
-    fn indent_lines(&self, cx: &mut Context<Self>) {
-        const INDENT: &str = "    ";
-        let editor = self.document.read(cx).editor().clone();
-        editor.update(cx, |editor, cx| {
-            let buffer = editor.buffer();
-            let selections = editor.selections();
-            let spans_lines = selections.iter().any(|selection| {
-                buffer.line_of(selection.anchor) != buffer.line_of(selection.head)
-            });
-            let mut starts: Vec<_> = selections
-                .iter()
-                .flat_map(|selection| {
-                    let range = selection.range();
-                    let last = range.end - usize::from(!range.is_empty());
-                    buffer.line_of(range.start)..=buffer.line_of(last)
-                })
-                .filter(|line| !spans_lines || !buffer.line(*line).trim().is_empty())
-                .map(|line| buffer.line_range(line).start)
-                .collect();
-            if starts.is_empty() {
-                return;
-            }
-            starts.sort_unstable();
-            starts.dedup();
-            let shift = |at| at + starts.partition_point(|start| *start <= at) * INDENT.len();
-            let selections: Vec<_> = selections
-                .iter()
-                .map(|selection| Range {
-                    start: shift(selection.anchor),
-                    end: shift(selection.head),
-                })
-                .collect();
-            let edits = starts.into_iter().map(|at| (at..at, INDENT.to_owned()));
-            log::info!("mark: indents source lines");
-            editor.edit(edits, cx);
-            editor.select(selections, cx);
-        });
-    }
 }
 
 impl Render for MarkView {
@@ -435,7 +395,6 @@ impl Render for MarkView {
             .size_full()
             .key_context("ElyMarkView")
             .track_focus(&self.focus)
-            .on_action(cx.listener(|view, _: &IndentLines, _, cx| view.indent_lines(cx)))
             .on_key_down(cx.listener(Self::surround_selection))
             .on_mouse_down(
                 MouseButton::Right,

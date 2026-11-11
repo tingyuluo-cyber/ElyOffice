@@ -1,12 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["apps/ely-mark", "crates/*"]
+members = ["apps/ely-mark", "crates/*", "vendor/ely-documents"]
 default-members = ["apps/ely-mark"]
 # Upstream sources and their builds keep their own manifests.
 exclude = ["engines", "reference"]
 
 [workspace.package]
-version = "0.1.18"
+version = "0.1.19"
 edition = "2024"
 rust-version = "1.98"
 license = "MIT"
@@ -85,3 +85,6 @@ gpui-pre-linux = { path = "vendor/gpui-pre-linux" }
 gpui-pre-macos = { path = "vendor/gpui-pre-macos" }
 gpui-pre-windows = { path = "vendor/gpui-pre-windows" }
 zbus = { path = "vendor/zbus" }
+
+[patch."https://github.com/ELY-Open-Source/Ely-GPUI-Components"]
+ely-documents = { path = "vendor/ely-documents" }
