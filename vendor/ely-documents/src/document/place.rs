@@ -38,6 +38,13 @@ impl MarkdownDocument {
 
     /// The selected Markdown: the source's, or the open block's.
     pub fn selected(&self, cx: &App) -> String {
+        if self.mode == MarkdownMode::Preview {
+            return self
+                .preview
+                .as_ref()
+                .and_then(|preview| preview.state.read(cx).selected())
+                .unwrap_or_default();
+        }
         let Some(open) = &self.open else {
             // Rendered modes show no source selection.
             if !matches!(self.mode, MarkdownMode::Source | MarkdownMode::Split) {

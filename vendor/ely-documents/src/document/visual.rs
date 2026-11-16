@@ -232,6 +232,7 @@ impl Render for MarkdownDocument {
         self.show_waiting(window, cx);
         self.open_waiting(window, cx);
         self.aim_waiting(window, cx);
+        self.prepare_preview(cx);
         let colors = cx.theme().colors.clone();
         let root = div()
             .size_full()
@@ -287,7 +288,8 @@ impl Render for MarkdownDocument {
                 .child(div().flex_1().min_w_0().h_full().child(self.editor.clone()))
                 .child(div().flex_1().min_w_0().h_full().child(blocks))
                 .into_any_element(),
-            MarkdownMode::Preview => root
+            MarkdownMode::Preview => self
+                .preview_body(root, cx)
                 .id(("markdown-document", cx.entity_id().as_u64()))
                 .role(Role::Document)
                 .aria_label(i18n::text(cx, "documents.document", &[]))

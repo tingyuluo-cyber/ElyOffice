@@ -7,8 +7,8 @@ use ely_gpui_component::{
     menus::{ContextMenu, Menu, MenuItem},
     primitives::IconName,
 };
-use ely_ui::menu::Offer;
 use ely_ui::i18n::text;
+use ely_ui::menu::Offer;
 use gpui::{
     Action, App, ClipboardItem, Context, Keystroke, MouseDownEvent, Pixels, Point, SharedString,
     Window,
@@ -58,7 +58,18 @@ impl MarkView {
                     copy_as(window, cx),
                 ))
                 .menu(),
-            Asked::Preview => copies(window, cx).into_iter().fold(Menu::new(), Menu::item),
+            Asked::Preview => copies(window, cx).into_iter().fold(
+                Menu::new()
+                    .item(
+                        copy_text(
+                            said("mark.edit.copy", cx),
+                            &self.document.read(cx).selected(cx),
+                        )
+                        .disabled(!selected),
+                    )
+                    .separator(),
+                Menu::item,
+            ),
         };
         Some(offer.host("mark-menu", menu))
     }
@@ -91,13 +102,15 @@ impl MarkView {
                 false => "mark.image.location",
             };
             let (shown, dropped, at) = (view.clone(), view.clone(), target.at);
-            rows =
-                rows.row(MenuItem::new(said(key, cx)).on_click(move |_, cx| {
+            rows = rows
+                .row(MenuItem::new(said(key, cx)).on_click(move |_, cx| {
                     shown.update(cx, |view, cx| view.show_picture(&url, cx))
                 }))
-                .row(MenuItem::new(said("mark.image.delete", cx)).on_click(move |_, cx| {
-                    dropped.update(cx, |view, cx| view.delete_image(at, cx))
-                }))
+                .row(
+                    MenuItem::new(said("mark.image.delete", cx)).on_click(move |_, cx| {
+                        dropped.update(cx, |view, cx| view.delete_image(at, cx))
+                    }),
+                )
                 .line();
         }
         if let Some(url) = &target.link {
@@ -247,7 +260,8 @@ fn run(label: SharedString, action: Box<dyn Action>, window: &Window, cx: &App) 
 
 /// A button that presses `stroke` where focus went back.
 fn press(label: SharedString, icon: IconName, stroke: &str, shown: bool, cx: &App) -> MenuItem {
-    let keystroke = Keystroke::parse_with_os(stroke, cx.platform_info().os).expect("a fixed keystroke");
+    let keystroke =
+        Keystroke::parse_with_os(stroke, cx.platform_info().os).expect("a fixed keystroke");
     let button = MenuItem::new(label).icon(icon);
     let button = match shown {
         true => button.keys(keystroke.unparse(cx.platform_info().os)),
@@ -350,7 +364,8 @@ fn copy_as(window: &Window, cx: &App) -> Menu {
 }
 
 fn formats(window: &Window, cx: &App) -> Vec<MenuItem> {
-    let row = |key, action: Box<dyn Action>, name| run(said(key, cx), action, window, cx).icon(name);
+    let row =
+        |key, action: Box<dyn Action>, name| run(said(key, cx), action, window, cx).icon(name);
     vec![
         row("mark.format.strong", Box::new(b::Strong), IconName::Bold),
         row(
@@ -364,7 +379,8 @@ fn formats(window: &Window, cx: &App) -> Vec<MenuItem> {
 }
 
 fn wraps(window: &Window, cx: &App) -> Vec<MenuItem> {
-    let row = |key, action: Box<dyn Action>, name| run(said(key, cx), action, window, cx).icon(name);
+    let row =
+        |key, action: Box<dyn Action>, name| run(said(key, cx), action, window, cx).icon(name);
     vec![
         row("mark.block.quote", Box::new(b::Quote), IconName::Quote),
         row(

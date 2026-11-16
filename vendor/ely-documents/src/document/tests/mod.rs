@@ -380,7 +380,6 @@ mod block;
 mod block_edges;
 mod cells;
 mod format;
-mod typing;
 mod history;
 mod leave;
 mod lend;
@@ -390,13 +389,15 @@ mod open_look;
 mod place;
 mod point;
 mod presses;
+mod preview;
 mod reading;
 mod scroll;
 mod secondary;
 mod span;
+mod tasks;
 mod toc;
 mod tools;
-mod tasks;
+mod typing;
 
 #[gpui::test]
 fn typed_source_reads_after_a_pause(cx: &mut TestAppContext) {

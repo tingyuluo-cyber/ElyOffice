@@ -12,6 +12,7 @@ impl MarkdownDocument {
         let drawn = editing && ix < self.parsed.blocks.len();
         let on_point = drawn.then(|| self.on_point(ix, cx));
         let tasks = self.task_hooks(ix, cx);
+        let gather = self.preview_gather(ix, cx);
         let theme = cx.theme();
         let colors = theme.colors.clone();
         let (radius, body, mono) = (
@@ -77,14 +78,21 @@ impl MarkdownDocument {
                         on_point: &on_point,
                         cell: cell.as_ref(),
                         tasks: &tasks,
+                        select: gather.as_ref(),
                     },
                     self.look.scale,
                     cx,
                 )),
             None => {
                 let raw = &self.parsed.text[block.range.clone()];
-                let drawn = StyledText::new(raw.to_string());
+                let over = gather
+                    .as_ref()
+                    .map_or_else(Vec::new, |gather| gather.over(raw, cx));
+                let drawn = StyledText::new(raw.to_string()).with_highlights(over);
                 let layout = drawn.layout().clone();
+                if let Some(gather) = &gather {
+                    gather.push(raw, layout.clone(), &[]);
+                }
                 let shown = div()
                     .text_size(body)
                     .font_family(mono)
@@ -101,6 +109,9 @@ impl MarkdownDocument {
                 ))
             }
         };
+        if let Some(gather) = gather {
+            gather.finish_block(cx);
+        }
         let block = div()
             .id(("block", ix))
             .debug_selector(move || format!("markdown-block-{ix}"))

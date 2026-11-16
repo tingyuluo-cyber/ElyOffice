@@ -26,6 +26,7 @@ impl RenderOnce for MarkdownRenderer {
                 on_point: &None,
                 cell: None,
                 tasks: &None,
+                select: None,
             },
             next: std::cell::Cell::new(0),
             sections: &self.sections,
@@ -64,4 +65,31 @@ pub(super) fn open_link(on_link: &Option<OnLink>, url: &str, window: &mut Window
         Some(on_link) => on_link(url, window, cx),
         None => cx.open_url(url),
     }
+}
+
+/// Parsed `nodes` drawn under `id`, with the owner's hooks.
+pub(crate) fn draw_nodes(
+    id: &ElementId,
+    nodes: &[Node],
+    hooks: Hooks,
+    scale: f32,
+    cx: &App,
+) -> Vec<AnyElement> {
+    let select = hooks.select;
+    let draw = Draw {
+        id,
+        hooks,
+        next: std::cell::Cell::new(0),
+        sections: &None,
+        headings: std::cell::Cell::new(0),
+        code: &None,
+        body: TextSize::Base,
+        scale,
+        lists: std::cell::Cell::new(0),
+        select,
+        table: std::cell::Cell::new(false),
+        tables: std::cell::Cell::new(0),
+        tasks: std::cell::Cell::new(0),
+    };
+    draw.nodes(nodes, cx)
 }

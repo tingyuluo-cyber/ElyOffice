@@ -151,6 +151,18 @@ fn preview_offers_copies_only(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn preview_menu_copies_the_selected_rendered_text(cx: &mut TestAppContext) {
+    let (desk, cx, _files) = opened("alpha **beta**\n", cx);
+    switch(&desk, Mode::Preview, cx);
+    cx.simulate_keystrokes("secondary-a");
+    let block = cx.debug_bounds("markdown-block-0").expect("drawn");
+    right_at(block.center(), cx);
+    choose("down", cx);
+    assert_eq!(clipboard(cx).as_deref(), Some("alpha beta"));
+    assert_eq!(current(&desk, cx), "alpha **beta**\n");
+}
+
+#[gpui::test]
 fn html_code_keeps_picture_addresses(cx: &mut TestAppContext) {
     let (_desk, cx, _files) = opened("![pic](missing.png) and *it*\n", cx);
     cx.dispatch_action(crate::export::CopyHtml);
@@ -199,7 +211,8 @@ fn a_later_editor_copy_outlives_a_pending_conversion(cx: &mut TestAppContext) {
     cx.run_until_parked();
     cx.update(|window, cx| window.dispatch_action(Box::new(crate::export::CopyHtml), cx));
     cx.update(|window, cx| {
-        let copy = gpui::Keystroke::parse_with_os("secondary-c", cx.platform_info().os).expect("key");
+        let copy =
+            gpui::Keystroke::parse_with_os("secondary-c", cx.platform_info().os).expect("key");
         window.dispatch_keystroke(copy, cx)
     });
     cx.run_until_parked();

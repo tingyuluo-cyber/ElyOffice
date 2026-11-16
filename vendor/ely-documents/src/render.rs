@@ -25,11 +25,12 @@ mod blocks;
 mod math_text;
 mod point;
 mod renderer;
-mod select;
+pub(crate) mod select;
 mod style;
 mod table;
 mod tasks;
 
+pub(crate) use renderer::draw_nodes;
 use renderer::open_link;
 
 pub(crate) use point::{OnPoint, Place, Pointed, point_lines};
@@ -163,6 +164,7 @@ pub(crate) struct Hooks<'a> {
     /// The cell typed in, drawn in its place.
     pub cell: Option<&'a OpenCell>,
     pub tasks: &'a Option<TaskHooks>,
+    pub select: Option<&'a Gather>,
 }
 
 /// Headings and strong text share one weight.
@@ -248,6 +250,7 @@ impl Draw<'_> {
 
     fn inline(&self, inline: &Inline, cx: &App) -> AnyElement {
         let links = (!inline.links.is_empty()).then(|| self.key("links"));
+        let on_link = select::link(self.select, self.hooks.on_link);
         if !inline.styles.iter().any(|(_, style)| *style == Style::Math) {
             let over = self
                 .select
@@ -257,7 +260,7 @@ impl Draw<'_> {
                 self.hooks.color_marks,
                 (&[], over),
                 links,
-                self.hooks.on_link,
+                &on_link,
                 cx,
             );
             if let Some(select) = self.select {
@@ -270,7 +273,6 @@ impl Draw<'_> {
             };
             return self.point_text(drawn, at, inline);
         }
-        let on_link = self.hooks.on_link.clone();
         let (drawn, at) = math_text::MathText::new(
             self.key("math"),
             inline.clone(),
@@ -278,7 +280,11 @@ impl Draw<'_> {
             on_link,
             self.hooks.color_marks,
         );
-        self.point_text(drawn.into_any_element(), at, inline)
+        self.point_text(
+            drawn.selectable(self.select, cx).into_any_element(),
+            at,
+            inline,
+        )
     }
 
     fn nodes(&self, nodes: &[Node], cx: &App) -> Vec<AnyElement> {
@@ -415,7 +421,7 @@ impl Draw<'_> {
                         .as_ref()
                         .and_then(|held| held.get(url).cloned()),
                 });
-                if let Some(select) = self.select {
+                if let Some(select) = self.select.filter(|select| select.picture_menu) {
                     let (state, on_menu) = (select.state.clone(), select.on_menu.clone());
                     let found = (url.clone(), link.clone());
                     picture =
@@ -468,32 +474,6 @@ impl Draw<'_> {
             Node::FrontMatter { text, from } => self.front_matter(text, *from, cx),
         }
     }
-}
-
-/// Parsed `nodes` drawn under `id`, with the owner's hooks.
-pub(crate) fn draw_nodes(
-    id: &ElementId,
-    nodes: &[Node],
-    hooks: Hooks,
-    scale: f32,
-    cx: &App,
-) -> Vec<AnyElement> {
-    let draw = Draw {
-        id,
-        hooks,
-        next: std::cell::Cell::new(0),
-        sections: &None,
-        headings: std::cell::Cell::new(0),
-        code: &None,
-        body: TextSize::Base,
-        scale,
-        lists: std::cell::Cell::new(0),
-        select: None,
-        table: std::cell::Cell::new(false),
-        tables: std::cell::Cell::new(0),
-        tasks: std::cell::Cell::new(0),
-    };
-    draw.nodes(nodes, cx)
 }
 
 #[cfg(test)]

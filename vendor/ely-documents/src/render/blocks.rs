@@ -204,8 +204,14 @@ impl Draw<'_> {
     /// Front matter as written, inside its box.
     pub(super) fn front_matter(&self, text: &str, from: usize, cx: &App) -> AnyElement {
         let theme = cx.theme();
-        let drawn = StyledText::new(text.to_string());
+        let over = self
+            .select
+            .map_or_else(Vec::new, |select| select.over(text, cx));
+        let drawn = StyledText::new(text.to_string()).with_highlights(over);
         let layout = drawn.layout().clone();
+        if let Some(select) = self.select {
+            select.push(text, layout.clone(), &[]);
+        }
         let block = div()
             .p_3()
             .rounded(theme.radius(Radius::Md))

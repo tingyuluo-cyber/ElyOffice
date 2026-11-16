@@ -179,8 +179,9 @@ fn a_span_ending_at_an_items_start_takes_no_marker() {
     let item = |lead: &str, text: &str| super::Drawn {
         lead: lead.into(),
         text: text.into(),
-        layout: gpui::TextLayout::default(),
+        layout: None,
         links: Vec::new(),
+        mapped: None,
     };
     let texts = [item("• ", "first"), item("• ", "second")];
     let at = |text, at| super::Spot { text, at };

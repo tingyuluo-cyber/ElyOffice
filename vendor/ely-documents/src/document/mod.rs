@@ -10,6 +10,7 @@ mod look;
 mod parse;
 mod place;
 mod point;
+mod preview;
 mod span;
 mod tables;
 mod tasks;
@@ -104,6 +105,7 @@ struct Open {
 pub struct MarkdownDocument {
     editor: Entity<CodeEditor>,
     mode: MarkdownMode,
+    preview: Option<preview::Preview>,
     base: Option<Arc<Path>>,
     parsed: Arc<Parsed>,
     /// Text changes counted; a read of an older one lapses.
@@ -192,6 +194,7 @@ impl MarkdownDocument {
         let mut document = Self {
             editor,
             mode,
+            preview: None,
             base: None,
             parsed: Arc::default(),
             edits: 0,
@@ -255,6 +258,7 @@ impl MarkdownDocument {
         // Visual and preview share one list and its scroll.
         let top = (!(listed(self.mode) && listed(mode))).then(|| self.top_line(cx));
         self.mode = mode;
+        self.preview = None;
         if let Some(top) = top {
             self.set_top_line(top, window, cx);
         }
@@ -323,6 +327,7 @@ impl MarkdownDocument {
     }
 
     fn changed(&mut self, cx: &mut Context<Self>) {
+        self.preview = None;
         // Only the document writes while a block is open.
         if self.writes > 0 {
             self.writes -= 1;
@@ -379,6 +384,7 @@ impl MarkdownDocument {
         self.editor
             .update(cx, |editor, _| editor.set_anchors(headings));
         self.parsed = Arc::new(read);
+        self.preview = None;
         cx.emit(DocumentEvent::Parsed);
         cx.notify();
     }

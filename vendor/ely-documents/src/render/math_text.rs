@@ -8,7 +8,10 @@ use gpui::{
     TextLayout, TextStyleRefinement, Window, point,
 };
 
-use super::{OnLink, drawn_text};
+use super::{
+    OnLink, drawn_text,
+    select::{Gather, Mapped as Shown},
+};
 use crate::{
     theme::ActiveTheme,
     {
@@ -23,12 +26,6 @@ const GLUE: char = '\u{00A0}';
 /// An original span and the drawn span standing for it.
 type Swap = (Range<usize>, Range<usize>);
 
-/// The drawn text and how its bytes map back.
-struct Shown {
-    layout: TextLayout,
-    swaps: Vec<Swap>,
-}
-
 /// Paragraph text whose formulas draw typeset over reserved glue.
 pub(super) struct MathText {
     id: ElementId,
@@ -42,6 +39,7 @@ pub(super) struct MathText {
     pictures: Vec<(Arc<RenderImage>, Size<Pixels>, Range<usize>)>,
     /// One glue character's width.
     glue: Pixels,
+    selection: Vec<(Range<usize>, HighlightStyle)>,
 }
 
 impl MathText {
@@ -74,8 +72,17 @@ impl MathText {
             text: None,
             pictures: Vec::new(),
             glue: Pixels::ZERO,
+            selection: Vec::new(),
         };
         (text, at)
+    }
+
+    pub(super) fn selectable(mut self, gather: Option<&Gather>, cx: &App) -> Self {
+        if let Some(gather) = gather {
+            self.selection = gather.over(&self.inline.text, cx);
+            gather.push_mapped(&self.inline.text, &self.inline.links, self.shown.clone());
+        }
+        self
     }
 }
 
@@ -95,7 +102,7 @@ fn forward(swaps: &[Swap], at: usize) -> usize {
 }
 
 /// The original byte drawn byte `at` stands for.
-fn back(swaps: &[Swap], at: usize) -> usize {
+pub(super) fn back(swaps: &[Swap], at: usize) -> usize {
     let mut shift = 0isize;
     for (written, drawn) in swaps {
         if at < drawn.start {
@@ -212,6 +219,12 @@ impl Element for MathText {
         };
         let said = (errors.iter())
             .map(|ix| (swaps[*ix].1.clone(), danger))
+            .chain(self.selection.iter().map(|(range, style)| {
+                (
+                    forward(&swaps, range.start)..forward(&swaps, range.end),
+                    *style,
+                )
+            }))
             .collect();
         let (mut text, layout) = drawn_text(
             &inline,

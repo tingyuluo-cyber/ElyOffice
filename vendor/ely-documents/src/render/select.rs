@@ -9,6 +9,9 @@ use gpui::{
 
 use crate::theme::ActiveTheme;
 
+mod content;
+pub(crate) use content::{content, raw};
+
 /// What a right press on selectable text found.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RightPress {
@@ -38,8 +41,24 @@ pub(crate) struct Drawn {
     /// A list item's marker, copied before its first text.
     lead: String,
     text: String,
-    layout: TextLayout,
+    layout: Option<TextLayout>,
     links: Vec<(Range<usize>, String)>,
+    mapped: Option<Rc<RefCell<Option<Mapped>>>>,
+}
+
+#[derive(Default)]
+pub(crate) struct Mapped {
+    pub layout: TextLayout,
+    pub swaps: Vec<(Range<usize>, Range<usize>)>,
+}
+
+impl Drawn {
+    fn layout(&self) -> Option<TextLayout> {
+        match &self.mapped {
+            Some(hit) => hit.borrow().as_ref().map(|hit| hit.layout.clone()),
+            None => self.layout.clone(),
+        }
+    }
 }
 
 /// A body's selection, kept across frames.
@@ -49,6 +68,7 @@ pub(crate) struct Selection {
     head: Spot,
     dragging: bool,
     texts: Vec<Drawn>,
+    visible: Vec<Range<usize>>,
 }
 
 impl Selection {
@@ -59,6 +79,7 @@ impl Selection {
             head: Spot::default(),
             dragging: false,
             texts: Vec::new(),
+            visible: Vec::new(),
         }
     }
 
@@ -67,16 +88,41 @@ impl Selection {
     }
 
     /// The selected text, blocks joined by line ends.
-    fn selected(&self) -> Option<String> {
+    pub(crate) fn selected(&self) -> Option<String> {
         copied(&self.texts, self.span())
+    }
+
+    pub(crate) fn reset(&mut self, texts: Vec<Drawn>, focus: FocusHandle) {
+        self.texts = texts;
+        self.focus = focus;
+        self.anchor = Spot::default();
+        self.head = Spot::default();
+        self.dragging = false;
+        self.visible.clear();
+    }
+
+    pub(crate) fn begin_frame(&mut self) {
+        for range in self.visible.drain(..) {
+            for text in &mut self.texts[range] {
+                text.layout = None;
+                text.mapped = None;
+            }
+        }
     }
 
     /// The spot under `position`: a text beside it, or one past it.
     fn spot(&self, position: Point<Pixels>) -> Option<Spot> {
-        let last = self.texts.len().checked_sub(1)?;
+        let mut last = None;
         let mut beside: Option<(Pixels, usize)> = None;
         for (k, drawn) in self.texts.iter().enumerate() {
-            let bounds = drawn.layout.bounds();
+            let Some(layout) = drawn.layout() else {
+                continue;
+            };
+            let bounds = layout.bounds();
+            if bounds.size.height <= Pixels::ZERO {
+                continue;
+            }
+            last = Some(k);
             if position.y < bounds.top() {
                 if beside.is_none() {
                     return Some(Spot { text: k, at: 0 });
@@ -93,13 +139,20 @@ impl Selection {
             }
         }
         let Some((_, k)) = beside else {
+            let last = last?;
             let at = self.texts[last].text.len();
             return Some(Spot { text: last, at });
         };
-        let layout = &self.texts[k].layout;
+        let drawn = &self.texts[k];
+        let layout = drawn.layout().expect("a drawn text");
         let bounds = layout.bounds();
         let across = point(position.x.clamp(bounds.left(), bounds.right()), position.y);
         let (Ok(at) | Err(at)) = layout.index_for_position(across);
+        let at = drawn.mapped.as_ref().map_or(at, |hit| {
+            hit.borrow()
+                .as_ref()
+                .map_or(at, |hit| super::math_text::back(&hit.swaps, at))
+        });
         Some(Spot { text: k, at })
     }
 
@@ -142,9 +195,11 @@ fn part(k: usize, len: usize, (from, to): (Spot, Spot)) -> Range<usize> {
 pub(crate) struct Gather {
     pub(crate) state: Entity<Selection>,
     pub(crate) on_menu: OnMenu,
+    pub(crate) picture_menu: bool,
     span: (Spot, Spot),
     texts: RefCell<Vec<Drawn>>,
     lead: RefCell<String>,
+    offset: usize,
 }
 
 impl Gather {
@@ -153,15 +208,17 @@ impl Gather {
         Self {
             state,
             on_menu,
+            picture_menu: true,
             span,
             texts: RefCell::default(),
             lead: RefCell::default(),
+            offset: 0,
         }
     }
 
     /// The selection's highlight on `text`, the next drawn.
     pub(crate) fn over(&self, text: &str, cx: &App) -> Vec<(Range<usize>, HighlightStyle)> {
-        let k = self.texts.borrow().len();
+        let k = self.offset + self.texts.borrow().len();
         let (from, to) = self.span;
         let range = part(k, text.len(), self.span);
         if from == to || k < from.text || k > to.text || range.is_empty() {
@@ -186,8 +243,40 @@ impl Gather {
         self.texts.borrow_mut().push(Drawn {
             lead: self.lead.take(),
             text: text.to_owned(),
-            layout,
+            layout: Some(layout),
             links: links.to_vec(),
+            mapped: None,
+        });
+    }
+
+    pub(crate) fn push_mapped(
+        &self,
+        text: &str,
+        links: &[(Range<usize>, String)],
+        hit: Rc<RefCell<Option<Mapped>>>,
+    ) {
+        self.push(text, TextLayout::default(), links);
+        self.texts
+            .borrow_mut()
+            .last_mut()
+            .expect("just pushed")
+            .mapped = Some(hit);
+    }
+
+    pub(crate) fn block(state: Entity<Selection>, offset: usize, cx: &App) -> Self {
+        let mut gather = Self::new(state, Rc::new(|_, _, _| {}), cx);
+        gather.offset = offset;
+        gather.picture_menu = false;
+        gather
+    }
+
+    pub(crate) fn finish_block(self, cx: &mut App) {
+        let texts = self.texts.into_inner();
+        let range = self.offset..self.offset + texts.len();
+        self.state.update(cx, |selection, _| {
+            assert!(range.end <= selection.texts.len());
+            selection.texts[range.clone()].clone_from_slice(&texts);
+            selection.visible.push(range);
         });
     }
 
@@ -212,6 +301,27 @@ impl Gather {
         });
         self.state
     }
+}
+
+/// Dragging a link selects its label; a click still follows it.
+pub(crate) fn link(
+    gather: Option<&Gather>,
+    on_link: &Option<super::OnLink>,
+) -> Option<super::OnLink> {
+    let Some(gather) = gather else {
+        return on_link.clone();
+    };
+    let (state, on_link) = (gather.state.clone(), on_link.clone());
+    Some(Rc::new(move |url, window, cx| {
+        if state.read(cx).selected().is_none() {
+            super::open_link(&on_link, url, window, cx);
+        }
+    }))
+}
+
+/// The document owns its focus and right-click menu.
+pub(crate) fn preview(body: Div, state: Entity<Selection>, cx: &App) -> Div {
+    selectable(body, state, Rc::new(|_, _, _| {}), cx)
 }
 
 /// A right press on a picture, its selection kept.
@@ -292,7 +402,8 @@ pub(crate) fn selectable(body: Div, state: Entity<Selection>, on_menu: OnMenu, c
             on_menu(press, window, cx);
         })
         .on_key_down(move |event, _, cx| {
-            if !event.keystroke.modifiers.secondary(cx) {
+            let modifiers = event.keystroke.modifiers;
+            if !modifiers.secondary(cx) || modifiers.shift || modifiers.alt {
                 return;
             }
             match event.keystroke.key.as_str() {
