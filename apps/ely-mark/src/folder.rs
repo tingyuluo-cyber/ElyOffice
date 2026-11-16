@@ -14,9 +14,10 @@ pub struct Folder {
 /// Hits a search keeps; it looks no further.
 pub const MOST_HITS: usize = 500;
 
-fn markdown(name: &str) -> bool {
-    let name = name.to_lowercase();
-    name.ends_with(".md") || name.ends_with(".markdown")
+pub(crate) fn markdown(path: &Path) -> bool {
+    path.extension().is_some_and(|ext| {
+        ext.eq_ignore_ascii_case("md") || ext.eq_ignore_ascii_case("markdown")
+    })
 }
 
 /// Markdown files under `root`; no links, no dot names.
@@ -34,7 +35,7 @@ pub fn markdown_under(root: &Path) -> io::Result<Vec<String>> {
             let path = format!("{prefix}{name}");
             if kind.is_dir() {
                 folders.push((entry.path(), format!("{path}/")));
-            } else if kind.is_file() && markdown(&name) {
+            } else if kind.is_file() && markdown(Path::new(&name)) {
                 found.push(path);
             }
         }

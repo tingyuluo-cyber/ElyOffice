@@ -518,3 +518,11 @@ beta`（`.work/R14.29/window4.ps1`（本机，未入库））。组件库 ely-do
 ## 2026-11-07 Linux 发布任务改到 WSL 的 runner
 
 - 原先 Windows 与 Linux 两个发布任务都要 `ely-windows` 这一个 runner，Linux 排在 Windows 之后（0.1.14 第二轮等了约一小时）。WSL 里本有一个闲着的 runner（`wsl-ubuntu`，标签 `wsl`），Linux 任务改到它上面，直接在 WSL 里跑 `ci.sh`，不再经 `wsl.exe`；以登录 shell 起（runner 的 PATH 没有 `~/.cargo/bin`，却有 Windows 的 cargo.exe）。下一次发布才验得到；两台 Mac 任务仍共用 `macos-signing`。
+
+## 2026-11-11 Markdown list editing
+
+- Vendor the pinned ely-documents crate and patch the Git dependency. Source and visual editing share list indentation, numbering, continuation and empty-item handling. The application no longer overrides Tab. Behavior and validation are in `docs/markdown-lists.md`.
+
+## 2026-11-16 Markdown editing fixes
+
+- Vendor the same pinned ely-editor crate for opt-in source soft wrapping. Drawn rows retain source offsets and history. MarkdownDocument owns selected-star wrapping and list insertion before markers. Reimu drops the Ctrl+Shift+E binding and keeps Ctrl+/. Windows DirectWrite keeps the actual fallback face rather than reconstructing it by name. Validation is in `docs/markdown-lists.md`.

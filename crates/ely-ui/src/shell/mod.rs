@@ -11,7 +11,7 @@ use ely_gpui_component::{
 };
 use gpui::{
     AnyElement, AnyView, App, ElementId, FocusHandle, InteractiveElement, IntoElement,
-    ParentElement, RenderOnce, SharedString, Styled, Window, div,
+    ParentElement, Pixels, RenderOnce, SharedString, Styled, Window, div, px,
 };
 
 mod page;
@@ -30,6 +30,7 @@ pub struct Shell {
     focus: FocusHandle,
     title: SharedString,
     tabs: Option<EditorTabs>,
+    rail: Option<(Pixels, AnyElement)>,
     left: Option<AnyView>,
     right: Option<AnyView>,
     status: Option<StatusBar>,
@@ -37,6 +38,7 @@ pub struct Shell {
     page: Option<ElementId>,
     main: bool,
     body: Vec<AnyElement>,
+    workspace_decoration: Option<AnyElement>,
 }
 
 impl Shell {
@@ -45,6 +47,7 @@ impl Shell {
             focus: focus.clone(),
             title: title.into(),
             tabs: None,
+            rail: None,
             left: None,
             right: None,
             status: None,
@@ -52,6 +55,7 @@ impl Shell {
             page: None,
             main: true,
             body: Vec::new(),
+            workspace_decoration: None,
         }
     }
 
@@ -63,6 +67,18 @@ impl Shell {
 
     pub fn tabs(mut self, tabs: EditorTabs) -> Self {
         self.tabs = Some(tabs);
+        self
+    }
+
+    /// Replaces the in-window menu bar with a leading rail.
+    pub fn rail(mut self, width: Pixels, rail: impl IntoElement) -> Self {
+        self.rail = Some((width, rail.into_any_element()));
+        self
+    }
+
+    /// A passive layer over the workspace beside the rail.
+    pub fn workspace_decoration(mut self, layer: impl IntoElement) -> Self {
+        self.workspace_decoration = Some(layer.into_any_element());
         self
     }
 
@@ -148,27 +164,46 @@ impl RenderOnce for Shell {
                     .child(TitleBar::new("titlebar").title(self.title)),
             )
             .children(self.main.then(|| crate::updates::updater(cx)).flatten())
-            .children(self.main.then(|| menu_bar(cx)).flatten())
+            .children((self.main && self.rail.is_none()).then(|| menu_bar(cx)).flatten())
             .children(self.tabs)
             .children(self.toolbar);
         let chosen = (crate::settings::panels::shown(true, cx), crate::settings::panels::shown(false, cx));
         let (left_view, right_view) = (self.left.filter(|_| chosen.0), self.right.filter(|_| chosen.1));
         // Panels give way so the content keeps its room.
         let (left, right) = (panel::fitted(Side::Left, window, cx), panel::fitted(Side::Right, window, cx));
+        let rail_width = self.rail.as_ref().map_or(px(0.0), |(width, _)| *width);
+        let available = window.viewport_size().width - rail_width;
         let (shown_left, shown_right) = panel::room(
-            window.viewport_size().width,
+            available,
             left_view.as_ref().map(|_| left),
             right_view.as_ref().map(|_| right),
         );
         let (squeezed_left, squeezed_right) = (left_view.is_some() && shown_left.is_none(), right_view.is_some() && shown_right.is_none());
         let mut drawn_left = panel::slide(Side::Left, left_view.filter(|_| shown_left.is_some()), shown_left.unwrap_or(left), squeezed_left, chosen.0, window, cx);
         let mut drawn_right = panel::slide(Side::Right, right_view.filter(|_| shown_right.is_some()), shown_right.unwrap_or(right), squeezed_right, chosen.1, window, cx);
-        panel::budget(&mut drawn_left, &mut drawn_right, window, cx);
+        panel::budget(&mut drawn_left, &mut drawn_right, available, window, cx);
         let row = div().flex_1().min_h_0().flex().child(content).child(SidePanel::new(Side::Right, drawn_right));
-        let frame = AppShell::new()
-            .title_bar(header)
-            .sidebar(SidePanel::new(Side::Left, drawn_left))
-            .child(row);
+        let panel = SidePanel::new(Side::Left, drawn_left);
+        let frame = AppShell::new().title_bar(header);
+        let frame = match self.workspace_decoration {
+            Some(decoration) => {
+                let frame = match self.rail {
+                    Some((width, rail)) => frame.sidebar(div().w(width).h_full().flex_none().child(rail)),
+                    None => frame,
+                };
+                frame.child(div().relative().flex().flex_1().min_w_0().min_h_0()
+                    .child(panel).child(row).child(decoration))
+            }
+            None => {
+                let sidebar = match self.rail {
+                    Some((width, rail)) => div().flex().h_full()
+                        .child(div().w(width).h_full().flex_none().child(rail))
+                        .child(panel).into_any_element(),
+                    None => panel.into_any_element(),
+                };
+                frame.sidebar(sidebar).child(row)
+            }
+        };
         let frame = match self.status {
             Some(bar) => frame.status_bar(bar),
             None => frame,

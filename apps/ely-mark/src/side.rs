@@ -23,6 +23,9 @@ use gpui::{
 use crate::desk::Desk;
 use crate::folder::{Hit, MOST_HITS, lines_with};
 
+mod panes;
+mod outline_dock;
+
 #[derive(Clone, Copy, PartialEq)]
 enum Pane {
     Files,
@@ -33,6 +36,8 @@ enum Pane {
 pub struct Side {
     desk: WeakEntity<Desk>,
     pane: Pane,
+    outline_open: bool,
+    outline_share: f32,
     query: Entity<TextInput>,
     /// Search the whole folder, else the shown file.
     wide: bool,
@@ -52,6 +57,11 @@ pub struct Side {
 }
 
 impl Side {
+    pub(crate) fn show_files(&mut self, cx: &mut Context<Self>) {
+        self.pane = Pane::Files;
+        cx.notify();
+    }
+
     pub fn new(desk: &Entity<Desk>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         // A new shown file is searched again.
         cx.observe(desk, |side, desk, cx| {
@@ -74,6 +84,8 @@ impl Side {
         Side {
             desk: desk.downgrade(),
             pane: Pane::Files,
+            outline_open: true,
+            outline_share: 0.42,
             query,
             wide: false,
             hits: Vec::new(),
@@ -202,19 +214,28 @@ impl Side {
                 .size_full();
             return self.file_menu(desk, cx).child(tree).into_any_element();
         }
-        if read.recent.is_empty() {
-            let open = Button::new("mark-open", text(cx, "command.file.open", &[]))
-                .on_click(|_, window, cx| window.dispatch_action(Box::new(commands::Open), cx));
-            return EmptyState::new(
+        let recent = read.recent.iter().filter(|path| {
+            !read.reimu || !read.remembered.values().any(|opened| opened == *path)
+        });
+        if recent.clone().next().is_none() {
+            if read.reimu && !read.core.tabs.is_empty() {
+                return div().into_any_element();
+            }
+            let empty = EmptyState::new(
                 "mark-no-recent",
                 IconName::Folder,
                 text(cx, "mark.recent.none", &[]),
-            )
-            .action(open)
-            .into_any_element();
+            );
+            return if read.reimu {
+                empty.into_any_element()
+            } else {
+                let open = Button::new("mark-open", text(cx, "command.file.open", &[]))
+                    .on_click(|_, window, cx| window.dispatch_action(Box::new(commands::Open), cx));
+                empty.action(open).into_any_element()
+            };
         }
         let (opener, clearer, side) = (desk.downgrade(), desk.downgrade(), cx.weak_entity());
-        let rows = read.recent.iter().map(|path| {
+        let rows = recent.map(|path| {
             let name = path
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())
@@ -271,7 +292,6 @@ impl Side {
         cx.notify();
     }
 
-    /// A file row's copies; a recent row's removal too.
     fn file_menu(&self, desk: &Entity<Desk>, cx: &mut Context<Self>) -> ContextMenu {
         let Some(offer) = &self.asked else {
             return ContextMenu::new("mark-file-menu", Menu::new()).manual(None).size_full();
@@ -415,57 +435,31 @@ impl Side {
 }
 
 impl Render for Side {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let Some(desk) = self.desk.upgrade() else {
             return div().into_any_element();
         };
-        let this = cx.entity();
-        let key = match self.pane {
-            Pane::Files => "files",
-            Pane::Outline => "outline",
-            Pane::Search => "search",
-        };
-        let panes = SegmentedControl::new("mark-pane", key)
-            .size(ControlSize::Sm)
-            .segment(
-                "files",
-                text(cx, "mark.pane.files", &[]),
-                Some(IconName::Folder),
-            )
-            .segment(
-                "outline",
-                text(cx, "mark.pane.outline", &[]),
-                Some(IconName::List),
-            )
-            .segment(
-                "search",
-                text(cx, "mark.pane.search", &[]),
-                Some(IconName::Search),
-            )
-            .on_change(move |key, _, cx| {
-                this.update(cx, |side, cx| {
-                    side.pane = match key.as_ref() {
-                        "outline" => Pane::Outline,
-                        "search" => Pane::Search,
-                        _ => Pane::Files,
-                    };
-                    cx.notify();
-                })
-            });
+        let reimu = desk.read(cx).reimu;
+        let panes = self.panes(reimu, window, cx);
         let body = match self.pane {
             Pane::Files => self.files(&desk, cx),
             Pane::Outline => self.outline(&desk, cx),
             Pane::Search => self.search_pane(&desk, cx),
         };
-        div()
+        let frame = div()
             .flex()
             .flex_col()
             .gap_2()
             .p_2()
             .size_full()
+            .children(Desk::side_tabs(&desk, cx))
             .child(panes)
-            .child(div().flex_1().min_h_0().child(body))
-            .into_any_element()
+            .child(div().flex_1().min_h_0().child(body));
+        if reimu {
+            self.outline_dock(frame, &desk, cx).into_any_element()
+        } else {
+            frame.into_any_element()
+        }
     }
 }
 

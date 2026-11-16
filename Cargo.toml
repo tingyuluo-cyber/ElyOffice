@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["apps/*", "crates/*"]
+members = ["apps/*", "crates/*", "vendor/ely-documents", "vendor/ely-editor"]
 # Upstream sources and their builds keep their own manifests.
 exclude = ["engines", "reference"]
 
@@ -99,3 +99,7 @@ gpui-pre-macos = { path = "vendor/gpui-pre-macos" }
 gpui-pre-windows = { path = "vendor/gpui-pre-windows" }
 mail-parser = { path = "vendor/mail-parser" }
 zbus = { path = "vendor/zbus" }
+
+[patch."https://github.com/ELY-Open-Source/Ely-GPUI-Components"]
+ely-documents = { path = "vendor/ely-documents" }
+ely-editor = { path = "vendor/ely-editor" }

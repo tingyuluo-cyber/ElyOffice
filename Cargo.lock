@@ -2180,7 +2180,6 @@ dependencies = [
 [[package]]
 name = "ely-documents"
 version = "0.2.0"
-source = "git+https://github.com/ELY-Open-Source/Ely-GPUI-Components?rev=e0f355ac1a669c24336244bcaa8131f7f0e4f1b5#e0f355ac1a669c24336244bcaa8131f7f0e4f1b5"
 dependencies = [
  "base64 0.22.1",
  "ely-core",
@@ -2198,6 +2197,7 @@ dependencies = [
  "ratex-svg",
  "ratex-types",
  "regex",
+ "rustix",
  "similar",
  "smallvec",
  "unicode-segmentation",
@@ -2209,7 +2209,6 @@ dependencies = [
 [[package]]
 name = "ely-editor"
 version = "0.2.0"
-source = "git+https://github.com/ELY-Open-Source/Ely-GPUI-Components?rev=e0f355ac1a669c24336244bcaa8131f7f0e4f1b5#e0f355ac1a669c24336244bcaa8131f7f0e4f1b5"
 dependencies = [
  "ely-charts",
  "ely-core",
@@ -2217,6 +2216,7 @@ dependencies = [
  "log",
  "regex",
  "serde_json",
+ "unicode-segmentation",
 ]
 
 [[package]]

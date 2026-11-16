@@ -1,6 +1,16 @@
 //! French ElyMark messages.
 
 pub(super) const FR: &[(&str, &str)] = &[
+    ("mark.tabs.open", "Onglets ouverts"),
+    ("mark.look.wide_edit", "Édition large"),
+    ("mark.look.wide_preview", "Aperçu large"),
+    ("mark.look.minimap", "Minicarte du document"),
+    ("mark.art.reimu", "Reimu Hakurei"),
+    ("mark.art.yukari", "Yukari Yakumo"),
+    ("mark.view.reading", "Basculer la vue de lecture"),
+    ("mark.look.source_reading", "Basculer entre le mode source et la lecture"),
+    ("command.file.open_folder", "Ouvrir un dossier…"),
+    ("mark.drop.markdown", "Déposez des fichiers Markdown (.md ou .markdown) ou des dossiers."),
     ("mark.pane.files", "Fichiers"),
     ("mark.pane.outline", "Plan"),
     ("mark.pane.search", "Rechercher"),

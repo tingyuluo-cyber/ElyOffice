@@ -139,8 +139,23 @@ pub(crate) fn marks(text: &str) -> Vec<(Range<usize>, Mark)> {
 
 /// Markdown styled as typed; its syntax recedes.
 pub fn markdown_highlights(text: &str, cx: &App) -> Vec<(Range<usize>, Highlight)> {
+    highlights(text, cx, false)
+}
+
+pub(crate) fn highlights(
+    text: &str,
+    cx: &App,
+    color_marks: bool,
+) -> Vec<(Range<usize>, Highlight)> {
     let colors = &cx.theme().colors;
-    let marks = marks(text);
+    let mut marks = marks(text);
+    if color_marks {
+        marks.sort_by_key(|(_, mark)| match mark {
+            Mark::Strong => 1,
+            Mark::Syntax => 2,
+            _ => 0,
+        });
+    }
     // A sixth-level heading reads muted, as drawn.
     let muted: Vec<Range<usize>> = marks
         .iter()
@@ -165,13 +180,21 @@ pub fn markdown_highlights(text: &str, cx: &App) -> Vec<(Range<usize>, Highlight
                 _ => range,
             };
             let highlight = match mark {
+                Mark::Strong if color_marks => Highlight {
+                    weight: Some(HEAVY),
+                    ..Highlight::new(colors.syntax.function)
+                },
                 Mark::Strong | Mark::Heading(_) => Highlight {
                     weight: Some(HEAVY),
                     ..plain
                 },
                 Mark::Emphasis => Highlight {
                     italic: true,
-                    ..plain
+                    ..if color_marks {
+                        Highlight::new(colors.syntax.keyword)
+                    } else {
+                        plain
+                    }
                 },
                 Mark::Strike => Highlight {
                     strike: true,

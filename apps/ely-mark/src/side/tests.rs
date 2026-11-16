@@ -7,6 +7,36 @@ use super::Pane;
 use crate::desk::tests::{open, start};
 
 #[gpui::test]
+fn the_full_height_outline_can_be_dragged_back(cx: &mut TestAppContext) {
+    let data = tempfile::tempdir().expect("profile");
+    let path = data.path().join("headings.md");
+    std::fs::write(&path, "# Headings\n\n## Section\n").expect("sample note");
+    let (desk, cx) = start(cx, data.path());
+    desk.update(cx, |desk, cx| {
+        desk.reimu = true;
+        cx.notify();
+    });
+    open(&desk, &path, cx);
+    let side = desk.read_with(cx, |desk, _| desk.side.clone());
+    side.update(cx, |side, cx| {
+        side.outline_open = true;
+        side.outline_share = 1.0;
+        cx.notify();
+    });
+    cx.run_until_parked();
+    let outline = cx.debug_bounds("mark-outline-dock").expect("full height outline");
+    let grip = point(outline.center().x, outline.top() - px(3.0));
+    cx.simulate_mouse_down(grip, MouseButton::Left, Modifiers::none());
+    for y in [10.0, 24.0, 120.0] {
+        cx.simulate_mouse_move(point(grip.x, grip.y + px(y)), MouseButton::Left, Modifiers::none());
+    }
+    cx.simulate_mouse_up(point(grip.x, grip.y + px(120.0)), MouseButton::Left, Modifiers::none());
+    cx.run_until_parked();
+    assert!(side.read_with(cx, |side, _| side.outline_open && side.outline_share < 0.98));
+    assert!(cx.debug_bounds("segment files").is_some());
+}
+
+#[gpui::test]
 fn a_long_outline_scrolls_to_its_last_heading(cx: &mut TestAppContext) {
     let (data, files) = (
         tempfile::tempdir().expect("data"),

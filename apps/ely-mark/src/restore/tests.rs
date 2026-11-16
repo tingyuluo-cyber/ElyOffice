@@ -17,6 +17,7 @@ fn each_untitled_copy_goes_to_the_tab_made_for_it() {
         path: None,
         name: name.into(),
         mode,
+        editing_mode: None,
         place: Some(super::Place {
             line: slot.len() as u64,
             column: 1,

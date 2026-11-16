@@ -116,7 +116,7 @@ fn strong_text_in_a_heading_keeps_its_weight(cx: &mut TestAppContext) {
     assert!(cx.debug_bounds("markdown-heading-0").is_some(), "drawn");
     let strong = cx.update(|_, cx| {
         let theme = cx.theme();
-        highlight(&Style::Strong, &theme.colors, theme.underline_thickness()).font_weight
+        highlight(&Style::Strong, &theme.colors, theme.underline_thickness(), false).font_weight
     });
     assert_eq!(strong, Some(HEAVY), "strong never lightens a heading");
 }

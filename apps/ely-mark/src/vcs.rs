@@ -2,7 +2,10 @@
 
 use std::{io, path::Path};
 
-use ely_gpui_component::{primitives::Severity, shell::StatusBarItem};
+use ely_gpui_component::{
+    primitives::{IconName, Severity},
+    shell::StatusBarItem,
+};
 use ely_office::prelude::*;
 use ely_platform::{AppId, git::NoGit};
 use ely_ui::i18n::text;
@@ -128,9 +131,12 @@ impl Desk {
             Tracked::Conflicted => "mark.git.conflicted",
             Tracked::NoGit => {
                 let this = cx.entity();
-                let item = StatusBarItem::new("mark-git")
-                    .label(text(cx, "mark.git.none", &[]))
-                    .tooltip(text(cx, "mark.git.needs", &[]));
+                let item = StatusBarItem::new("mark-git").tooltip(text(cx, "mark.git.needs", &[]));
+                let item = if self.reimu {
+                    item.icon(IconName::Info)
+                } else {
+                    item.label(text(cx, "mark.git.none", &[]))
+                };
                 return Some(item.on_click(move |_, _, cx| {
                     let said = text(cx, "mark.git.needs", &[]);
                     this.update(cx, |desk, cx| desk.toast(said, Severity::Warning, cx));

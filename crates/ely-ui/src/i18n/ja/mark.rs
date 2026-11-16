@@ -1,6 +1,16 @@
 //! Japanese words for ElyMark.
 
 pub(super) const JA: &[(&str, &str)] = &[
+    ("mark.tabs.open", "開いているタブ"),
+    ("mark.look.wide_edit", "ワイド編集"),
+    ("mark.look.wide_preview", "ワイドプレビュー"),
+    ("mark.look.minimap", "文書ミニマップ"),
+    ("mark.art.reimu", "博麗霊夢"),
+    ("mark.art.yukari", "八雲紫"),
+    ("mark.view.reading", "閲覧ビュー切替"),
+    ("mark.look.source_reading", "ショートカットでソースと閲覧を切り替え"),
+    ("command.file.open_folder", "フォルダーを開く…"),
+    ("mark.drop.markdown", "Markdown ファイル（.md または .markdown）かフォルダーをドロップしてください。"),
     ("mark.pane.files", "ファイル"),
     ("mark.pane.outline", "アウトライン"),
     ("mark.pane.search", "検索"),

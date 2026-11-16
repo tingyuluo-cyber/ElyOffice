@@ -1,4 +1,5 @@
 use std::ops::Range;
+use std::{cell::RefCell, collections::HashMap};
 
 use gpui::{
     AnyElement, Bounds, Context, ElementInputHandler, InteractiveElement, IntoElement, MouseButton,
@@ -19,10 +20,15 @@ use crate::{
     theme::{ActiveTheme, TextSize},
 };
 
+type LineColors = Vec<(Range<usize>, gpui::HighlightStyle)>;
+
 /// What one render worked out, for the rows the list builds after it.
 #[derive(Default)]
 pub(crate) struct Frame {
     pub rows: Vec<Row>,
+    pub segments: Vec<Range<usize>>,
+    pub wraps: super::wrap::Wrap,
+    pub colors: RefCell<HashMap<usize, LineColors>>,
     pub folds: Vec<(usize, usize)>,
     pub brackets: Vec<Bracket>,
     pub advance: Pixels,
@@ -60,8 +66,13 @@ impl CodeEditor {
 
     /// Scrolls so `line` heads the view.
     pub fn scroll_line_to_top(&self, line: usize) {
+        let row = self
+            .frame
+            .rows
+            .iter()
+            .position(|row| *row == Row::Line(line));
         self.scroll
-            .scroll_to_item_strict(line + self.pad, ScrollStrategy::Top);
+            .scroll_to_item_strict(row.unwrap_or(line + self.pad), ScrollStrategy::Top);
     }
 
     /// The handle the code scrolls by, for a bar beside it.
@@ -243,6 +254,12 @@ impl CodeEditor {
         cx.notify();
     }
 
+    /// Wraps long source lines to the available viewport width.
+    pub fn soft_wrap(mut self) -> Self {
+        self.options.soft_wrap = true;
+        self
+    }
+
     /// Fades every line but the caret's.
     pub fn set_focus_line(&mut self, on: bool, cx: &mut Context<Self>) {
         self.options.focus_line = on;
@@ -301,8 +318,27 @@ impl Render for CodeEditor {
         let mut shown = vec![Row::Room; self.pad];
         shown.extend(rows(&self.buffer, &hide, &self.marks));
         shown.extend(std::iter::repeat_n(Row::Room, self.pad));
+        let mut wraps = std::mem::take(&mut self.frame.wraps);
+        let (shown, segments) = if self.options.soft_wrap && self.metrics.width > Pixels::ZERO {
+            let width =
+                (self.metrics.width - advance * (self.gutter_columns() + 2) as f32).max(advance);
+            wraps.update(&self.buffer, width, pixels, mono_family.clone(), window);
+            wraps.rows(shown, &self.buffer)
+        } else {
+            let segments = shown
+                .iter()
+                .map(|row| match row {
+                    Row::Line(line) => self.row_range(*line),
+                    _ => 0..0,
+                })
+                .collect();
+            (shown, segments)
+        };
         self.frame = Frame {
             rows: shown,
+            segments,
+            wraps,
+            colors: RefCell::default(),
             folds: found,
             brackets: found_brackets,
             advance,
@@ -366,8 +402,10 @@ impl Render for CodeEditor {
                         let resized = top.update(cx, |editor, _| {
                             editor.metrics.wheel = wheel;
                             editor.metrics.top = bounds.origin.y;
-                            let resized = editor.metrics.height != bounds.size.height;
+                            let resized = editor.metrics.height != bounds.size.height
+                                || editor.metrics.width != bounds.size.width;
                             editor.metrics.height = bounds.size.height;
+                            editor.metrics.width = bounds.size.width;
                             resized
                         });
                         // A new height centers the caret again.

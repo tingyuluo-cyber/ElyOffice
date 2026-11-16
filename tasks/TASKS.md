@@ -602,3 +602,7 @@
 - [x] R17.1 Mac 的两个测试：`reading_the_theme_is_no_change` 在 Mac 上 20 次败 20 次，因 FSEvents 把起监视前的写入晚报成变化，测试先等这些旧事件停下再读，修后 20/20 过；`a_connector_s_ends_glue_to_shapes_and_follow_a_move` 原先只比一份存得太早的副本，首次拖动没落下也能过，现每步等内核的选框到位再存（`crates/ely-ui/src/theme/omarchy/tests.rs`、`crates/ely-lok/src/client/tests/connectors.rs`）；未送审（用户要快发）
 - [ ] R17.2 Impress 新建连接线后立刻经 `setGraphicSelection` 拖端点，Mac 负载高时约五次一失：选框已到，按下却没抓到端点，不新增对象，五秒内不动；根因未查到，须在内核里查端点手柄何时可点
 - [ ] R17.3 Mac 机器本身：`coreaudiod` 停应（重启即好）、登录钥匙串在 SSH 里锁着使公证读不到 `ely-notary`；CI 前应先核对这两处
+
+## Markdown editing (2026-11-16)
+
+- [~] MK.1 ElyMark editing fixes and colored marks (§14). List insertion before markers renumbers siblings and preserves outer containers. Repeated typed stars retain the selected text. Ctrl+Shift+E is unbound; Ctrl+/ toggles source. Source wraps at the viewport width and text scale, with caret affinity and IME offsets preserved. Bold and italic use distinct theme colors in editing and preview. Windows keeps DirectWrite's actual fallback face for Chinese italics. Implementation and validation: `docs/markdown-lists.md`. Automatic approval blocked the formal external reviewer with permission checks disabled; independent internal review findings were fixed and regression-tested.

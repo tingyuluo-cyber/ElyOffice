@@ -59,6 +59,113 @@ fn focused(view: &Entity<MarkView>, cx: &mut VisualTestContext) {
 }
 
 #[gpui::test]
+fn source_tab_indents_lines_and_keeps_the_selection(cx: &mut TestAppContext) {
+    let original = "一行\n\nsecond\nthird\n";
+    let (view, cx) = open(original, cx);
+    cx.update(|_, cx| crate::keys::bind(false, cx));
+    view.update_in(cx, |view, window, cx| {
+        view.switch(Mode::Source, window, cx);
+        view.reveal((0, 1), window, cx);
+    });
+    focused(&view, cx);
+    cx.simulate_keystrokes("tab");
+    assert_eq!(current(&view, cx), "    一行\n\nsecond\nthird\n");
+    assert_eq!(view.read_with(cx, |view, cx| view.place(cx).column), 5);
+    cx.simulate_keystrokes("shift-tab");
+    assert_eq!(current(&view, cx), original);
+
+    let editor = view.read_with(cx, |view, cx| view.document().read(cx).editor().clone());
+    let start = "一".len();
+    let end = "一行\n\nsecond\n".len();
+    editor.update(cx, |editor, cx| {
+        editor.select(
+            [std::ops::Range {
+                start: end,
+                end: start,
+            }],
+            cx,
+        );
+    });
+    cx.simulate_keystrokes("tab");
+    assert_eq!(current(&view, cx), "    一行\n\n    second\nthird\n");
+    let kept = editor.read_with(cx, |editor, _| editor.primary());
+    assert_eq!((kept.anchor, kept.head), (end + 8, start + 4));
+    cx.simulate_keystrokes(ely_gpui_component::secondary!("z"));
+    assert_eq!(current(&view, cx), original);
+}
+
+#[gpui::test]
+fn source_list_keys_keep_each_levels_numbers(cx: &mut TestAppContext) {
+    let original = "1. 一级\n2. 二级\n3. 三级\n4. 四级";
+    let (view, cx) = open(original, cx);
+    cx.update(|_, cx| crate::keys::bind(false, cx));
+    view.update_in(cx, |view, window, cx| {
+        view.switch(Mode::Source, window, cx);
+        view.reveal((2, 5), window, cx);
+    });
+    focused(&view, cx);
+    cx.simulate_keystrokes("tab");
+    assert_eq!(current(&view, cx), "1. 一级\n2. 二级\n    1. 三级\n3. 四级");
+    cx.simulate_keystrokes("shift-tab");
+    assert_eq!(current(&view, cx), original);
+    cx.simulate_keystrokes(ely_gpui_component::secondary!("z"));
+    assert_eq!(current(&view, cx), "1. 一级\n2. 二级\n    1. 三级\n3. 四级");
+    cx.simulate_keystrokes(ely_gpui_component::secondary!("z"));
+    assert_eq!(current(&view, cx), original);
+}
+
+#[gpui::test]
+fn source_list_enter_tab_and_empty_enter_form_a_complete_flow(cx: &mut TestAppContext) {
+    let (view, cx) = open("1. 父项", cx);
+    cx.update(|_, cx| crate::keys::bind(false, cx));
+    view.update_in(cx, |view, window, cx| {
+        view.switch(Mode::Source, window, cx);
+        view.reveal((0, 5), window, cx);
+    });
+    focused(&view, cx);
+    cx.simulate_keystrokes("enter tab");
+    assert_eq!(current(&view, cx), "1. 父项\n    1. ");
+    cx.simulate_input("子项");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(current(&view, cx), "1. 父项\n    1. 子项\n    2. ");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(current(&view, cx), "1. 父项\n    1. 子项\n2. ");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(current(&view, cx), "1. 父项\n    1. 子项\n");
+}
+
+#[gpui::test]
+fn source_shift_enter_stays_in_the_same_item(cx: &mut TestAppContext) {
+    let (view, cx) = open("1. a", cx);
+    cx.update(|_, cx| crate::keys::bind(false, cx));
+    view.update_in(cx, |view, window, cx| {
+        view.switch(Mode::Source, window, cx);
+        view.reveal((0, 4), window, cx);
+    });
+    focused(&view, cx);
+    cx.simulate_keystrokes("shift-enter");
+    cx.simulate_input("continued");
+    assert_eq!(current(&view, cx), "1. a  \n   continued");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(current(&view, cx), "1. a  \n   continued\n2. ");
+}
+
+#[gpui::test]
+fn large_source_tab_keeps_plain_indentation_without_reading_a_tree(cx: &mut TestAppContext) {
+    let original = format!(
+        "1. item\n{}",
+        "x".repeat(ely_gpui_component::documents::LARGEST_READ)
+    );
+    let (view, cx) = open(&original, cx);
+    view.update_in(cx, |view, window, cx| view.reveal((0, 7), window, cx));
+    focused(&view, cx);
+    cx.simulate_keystrokes("tab");
+    assert_eq!(current(&view, cx), format!("    {original}"));
+    cx.simulate_keystrokes("shift-tab");
+    assert_eq!(current(&view, cx), original);
+}
+
+#[gpui::test]
 fn switching_modes_writes_no_byte(cx: &mut TestAppContext) {
     let (view, cx) = open("# A\r\n\r\n* b\r\n", cx);
     for mode in [Mode::Source, Mode::Preview, Mode::Visual, Mode::Source] {
@@ -281,17 +388,32 @@ fn a_broken_inline_gif_ends(cx: &mut TestAppContext) {
 #[gpui::test]
 fn a_wheel_beside_the_text_scrolls_it(cx: &mut TestAppContext) {
     use gpui::{ScrollDelta, ScrollEvent, point, px};
-    let (data, files) = (tempfile::tempdir().expect("data"), tempfile::tempdir().expect("files"));
+    let (data, files) = (
+        tempfile::tempdir().expect("data"),
+        tempfile::tempdir().expect("files"),
+    );
     let path = files.path().join("long.md");
-    std::fs::write(&path, (0..300).map(|n| format!("Paragraph {n}.
+    std::fs::write(
+        &path,
+        (0..300)
+            .map(|n| {
+                format!(
+                    "Paragraph {n}.
 
-")).collect::<String>()).expect("a file");
+"
+                )
+            })
+            .collect::<String>(),
+    )
+    .expect("a file");
     let (desk, cx) = crate::desk::tests::start(cx, data.path());
     crate::desk::tests::open(&desk, &path, cx);
     let view = desk.read_with(cx, |desk, _| desk.active_view().expect("a tab"));
     cx.run_until_parked();
     // Left of the first block is margin, not text.
-    let block = cx.debug_bounds("markdown-block-0").expect("the first block");
+    let block = cx
+        .debug_bounds("markdown-block-0")
+        .expect("the first block");
     let top = |cx: &mut VisualTestContext| cx.update(|_, app| view.read(app).place(app).top);
     let before = top(cx);
     cx.simulate_event(ScrollEvent {

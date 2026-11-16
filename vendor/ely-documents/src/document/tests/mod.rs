@@ -380,6 +380,7 @@ mod block;
 mod block_edges;
 mod cells;
 mod format;
+mod typing;
 mod history;
 mod leave;
 mod lend;

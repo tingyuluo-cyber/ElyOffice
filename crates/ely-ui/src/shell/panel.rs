@@ -138,8 +138,8 @@ fn wait(open: &mut Option<Drawn>, other: &Option<Drawn>, spare: Pixels) {
 }
 
 /// Fits this frame's panels beside the content; keeps drawn widths.
-pub(super) fn budget(left: &mut Option<Drawn>, right: &mut Option<Drawn>, window: &mut Window, cx: &mut App) {
-    let spare = window.viewport_size().width - px(CONTENT_LEAST);
+pub(super) fn budget(left: &mut Option<Drawn>, right: &mut Option<Drawn>, width: Pixels, window: &mut Window, cx: &mut App) {
+    let spare = width - px(CONTENT_LEAST);
     // A closing panel that no longer fits goes, right first.
     if right.as_ref().is_some_and(|drawn| !drawn.open) && need(Side::Right, right) + need(Side::Left, left) > spare {
         shut(Side::Right, right, window, cx);

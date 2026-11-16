@@ -253,7 +253,7 @@ impl SettingsView {
             None => section,
         };
         // Only where Omarchy is installed.
-        if ely_platform::omarchy_current_dir().is_some() {
+        if !crate::theme::uses_paired_palettes(cx) && ely_platform::omarchy_current_dir().is_some() {
             let follow = Switch::new("settings-omarchy", shared.omarchy_sync)
                 .name(text(cx, "settings.omarchy", &[]))
                 .on_change(|on, _, cx| set(OMARCHY_SYNC, Value::Bool(on), cx));

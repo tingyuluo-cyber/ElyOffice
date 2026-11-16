@@ -1,9 +1,9 @@
-use ely_gpui_component::theme::{ActiveTheme as _, Mode};
+use ely_gpui_component::theme::{ActiveTheme as _, Mode, Palette};
 use ely_platform::{
     AppId,
     settings::{Appearance, Shared},
 };
-use gpui::TestAppContext;
+use gpui::{TestAppContext, rgb};
 
 use super::{changed, window::SettingsView};
 
@@ -36,6 +36,26 @@ fn a_change_on_disk_turns_the_theme_at_once(cx: &mut TestAppContext) {
     cx.update(|cx| changed((light, None), cx));
     cx.run_until_parked();
     cx.update(|cx| assert_eq!(cx.theme().mode(), Mode::Light));
+}
+
+#[gpui::test]
+fn appearance_changes_keep_the_apps_paired_palettes(cx: &mut TestAppContext) {
+    installed(cx);
+    cx.update(|cx| {
+        let mut light = Palette::light(false);
+        let mut dark = Palette::dark(false);
+        light.bg = rgb(0xfcf8ef).into();
+        dark.bg = rgb(0x2e3440).into();
+        crate::theme::set_paired_palettes(light, dark, cx);
+        for (appearance, mode, background) in [
+            (Appearance::Dark, Mode::Dark, rgb(0x2e3440)),
+            (Appearance::Light, Mode::Light, rgb(0xfcf8ef)),
+        ] {
+            changed((Shared { appearance, ..Shared::default() }, None), cx);
+            assert_eq!(cx.theme().mode(), mode);
+            assert_eq!(cx.theme().palette().bg, background.into());
+        }
+    });
 }
 
 #[gpui::test]

@@ -27,7 +27,7 @@ use windows_numerics::Vector2;
 use crate::*;
 use gpui::*;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct FontInfo {
     font_family_h: HSTRING,
     font_face: IDWriteFontFace3,
@@ -1633,6 +1633,12 @@ impl IDWriteTextRenderer_Impl for TextRenderer_Impl {
                             .select_and_cache_font(context.components, &font)
                             .ok_or_else(|| Error::new(DWRITE_E_NOFONT, "Failed to create font"))?,
                     };
+                    let info = FontInfo {
+                        font_face: font_face.clone(),
+                        ..context.text_system.fonts[font_id.0].clone()
+                    };
+                    let font_id = FontId(context.text_system.fonts.len());
+                    context.text_system.fonts.push(info);
                     context
                         .text_system
                         .font_info_cache
@@ -1968,6 +1974,76 @@ fn han(tag: &str) -> bool {
 
 #[cfg(test)]
 mod han_tests {
+    #[test]
+    fn simulated_fallback_keeps_its_original_face() {
+        use super::*;
+        let system = DirectWriteTextSystem::new(None).expect("DirectWrite");
+        let font_id = system.font_id(&gpui::font("Microsoft YaHei")).expect("Han font");
+        let mut state = system.state.write();
+        let base = state.fonts[font_id.0].font_face.clone();
+        // SAFETY: DirectWrite owns both faces.
+        let actual = unsafe {
+            base.GetFontFaceReference().expect("reference")
+                .CreateFontFaceWithSimulations(DWRITE_FONT_SIMULATIONS_OBLIQUE).expect("slanted face")
+        };
+        let mut glyph_ids = [0u16];
+        // SAFETY: Both arrays hold one code point.
+        unsafe { actual.GetGlyphIndices([u32::from('还')].as_ptr(), 1, glyph_ids.as_mut_ptr()).expect("Han glyph") };
+        let advances = [16f32];
+        let offsets = [DWRITE_GLYPH_OFFSET::default()];
+        let text: Vec<_> = "还".encode_utf16().collect();
+        let clusters = [0u16];
+        let run = DWRITE_GLYPH_RUN {
+            fontFace: ManuallyDrop::new(Some(actual.cast().expect("base face"))),
+            fontEmSize: 16., glyphCount: 1, glyphIndices: glyph_ids.as_ptr(),
+            glyphAdvances: advances.as_ptr(), glyphOffsets: offsets.as_ptr(),
+            isSideways: false.into(), bidiLevel: 0,
+        };
+        let description = DWRITE_GLYPH_RUN_DESCRIPTION {
+            localeName: PCWSTR::null(), string: PCWSTR(text.as_ptr()),
+            stringLength: 1, clusterMap: clusters.as_ptr(), textPosition: 0,
+        };
+        let mut runs = Vec::new();
+        let context = RendererContext {
+            text_system: &mut state, components: &system.components,
+            index_converter: StringIndexConverter::new("还"), runs: &mut runs, width: 0.,
+        };
+        // SAFETY: The arrays and context outlive drawing.
+        let drawn = unsafe {
+            system.components.text_renderer.0.DrawGlyphRun(
+                Some((&raw const context).cast()), 0., 0., DWRITE_MEASURING_MODE_NATURAL,
+                &run, &description, None,
+            )
+        };
+        drop(ManuallyDrop::into_inner(run.fontFace));
+        drawn.expect("fallback run");
+        let cached = &context.text_system.fonts[context.runs[0].font_id.0].font_face;
+        assert_eq!(cached, &actual, "rasterize the face that supplied the glyph index");
+    }
+
+    #[test]
+    fn italic_han_keeps_the_face_that_supplied_its_glyphs() {
+        use gpui::PlatformTextSystem as _;
+        use windows::core::Interface as _;
+        let system = super::DirectWriteTextSystem::new(None).expect("DirectWrite");
+        for style in [gpui::FontStyle::Normal, gpui::FontStyle::Italic] {
+            let font = gpui::Font { style, ..gpui::font("Arial") };
+            let font_id = system.font_id(&font).expect("Arial");
+            let text = "还得修改 中文 italic";
+            let runs = [gpui::FontRun { len: text.len(), font_id }];
+            for _ in 0..3 {
+                let layout = system.layout_line(text, gpui::px(18.), &runs);
+                assert!(!layout.runs.is_empty());
+                let state = system.state.read();
+                for (key, id) in &state.font_info_cache {
+                    let face = &state.fonts[id.0].font_face;
+                    let stored = face.cast::<windows::core::IUnknown>().expect("identity");
+                    assert_eq!(*key, stored.as_raw().addr(), "glyphs retain their exact face");
+                }
+            }
+        }
+    }
+
     #[test]
     fn han_languages_are_told_by_their_first_subtag() {
         for tag in ["zh-Hans-CN", "zh-TW", "ja-JP", "ko"] {

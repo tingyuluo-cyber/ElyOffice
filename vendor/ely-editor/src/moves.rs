@@ -12,10 +12,17 @@ impl CodeEditor {
     pub(crate) fn motion(&mut self, motion: Motion, extend: bool, cx: &mut Context<Self>) {
         let hide = hidden(self.buffer.lines(), &folds(&self.buffer), &self.folded);
         let vertical = matches!(motion, Motion::Up | Motion::Down | Motion::Page(_));
+        let mut upstream = std::collections::BTreeSet::new();
         let moved: Vec<Selection> = self
             .selections
             .iter()
             .map(|selection| {
+                if let Some((next, end)) = self.wrapped_motion(*selection, motion, extend) {
+                    if end {
+                        upstream.insert((self.buffer.stamp(), next.head));
+                    }
+                    return next;
+                }
                 let mut next = moved(&self.buffer, *selection, motion, extend);
                 while vertical && hide[self.buffer.line_of(next.head)] {
                     let again = moved(&self.buffer, next, motion, extend);
@@ -32,6 +39,7 @@ impl CodeEditor {
             Motion::Up | Motion::Start | Motion::LineStart | Motion::WordLeft | Motion::Left
         ) || matches!(motion, Motion::Page(lines) if lines < 0);
         self.set_selections(moved, cx);
+        self.upstream = upstream;
         self.reveal(!up, cx);
     }
 
@@ -152,6 +160,11 @@ impl CodeEditor {
 
     /// The row the primary cursor draws on, or the fold header above it when a fold hides it.
     pub(crate) fn primary_row(&self) -> usize {
+        if self.frame.stamp == self.buffer.stamp()
+            && let Some(row) = self.caret_row(self.primary().head)
+        {
+            return row;
+        }
         let line = self.buffer.line_of(self.primary().head);
         let hide = hidden(self.buffer.lines(), &folds(&self.buffer), &self.folded);
         rows(&self.buffer, &hide, &self.marks)

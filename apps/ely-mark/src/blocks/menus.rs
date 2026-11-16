@@ -43,7 +43,7 @@ fn choose(menu: fn(&App) -> Menu, row: usize, cx: &mut VisualTestContext) {
 
 fn edit_menu(cx: &App) -> Menu {
     let look = crate::look::Look::default();
-    crate::keys::menus(&look, cx).remove(0)
+    crate::keys::menus(&look, false, cx).remove(0)
 }
 
 #[gpui::test]
