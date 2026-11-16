@@ -39,6 +39,7 @@ impl RenderOnce for MarkdownRenderer {
             table: std::cell::Cell::new(false),
             tables: std::cell::Cell::new(0),
             tasks: std::cell::Cell::new(0),
+            done: std::cell::Cell::new(false),
         };
         let body = div()
             .flex()
@@ -90,6 +91,7 @@ pub(crate) fn draw_nodes(
         table: std::cell::Cell::new(false),
         tables: std::cell::Cell::new(0),
         tasks: std::cell::Cell::new(0),
+        done: std::cell::Cell::new(false),
     };
     draw.nodes(nodes, cx)
 }

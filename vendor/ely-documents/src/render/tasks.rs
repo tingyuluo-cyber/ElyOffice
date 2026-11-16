@@ -1,9 +1,12 @@
-use std::rc::Rc;
+use std::{borrow::Cow, rc::Rc};
 
 use gpui::{AnyElement, App, InteractiveElement, IntoElement, ParentElement, Window, div};
 
 use super::Draw;
-use crate::{forms::Checkbox, tree::Node};
+use crate::{
+    forms::Checkbox,
+    tree::{Inline, Node, Style},
+};
 
 type OnTask = Rc<dyn Fn(usize, bool, &mut Window, &mut App)>;
 
@@ -13,6 +16,21 @@ pub(crate) struct TaskHooks {
 }
 
 impl Draw<'_> {
+    pub(super) fn task_nodes(
+        &self,
+        task: Option<bool>,
+        body: &[Node],
+        cx: &App,
+    ) -> Vec<AnyElement> {
+        // Nested items use their own completion state.
+        let previous = self
+            .done
+            .replace(task == Some(true) && self.hooks.tasks.is_some());
+        let nodes = self.nodes(body, cx);
+        self.done.set(previous);
+        nodes
+    }
+
     pub(super) fn task(&self, done: bool, body: &[Node]) -> Option<AnyElement> {
         let ix = self.tasks.get();
         self.tasks.set(ix + 1);
@@ -41,3 +59,16 @@ impl Draw<'_> {
         )
     }
 }
+
+/// Completion shares Markdown's strike styling without changing source text.
+pub(super) fn completed_inline(inline: &Inline, done: bool) -> Cow<'_, Inline> {
+    if !done || inline.text.is_empty() {
+        return Cow::Borrowed(inline);
+    }
+    let mut shown = inline.clone();
+    shown.styles.push((0..shown.text.len(), Style::Strike));
+    Cow::Owned(shown)
+}
+
+#[cfg(all(test, feature = "test-support"))]
+mod tests;

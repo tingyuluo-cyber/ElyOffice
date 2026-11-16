@@ -78,7 +78,7 @@ impl Draw<'_> {
                     };
                     select.lead(format!("{}{mark} ", "  ".repeat(depth)));
                 }
-                let inner = self.nodes(body, cx);
+                let inner = self.task_nodes(*task, body, cx);
                 if let Some(select) = self.select {
                     select.lead(String::new());
                 }

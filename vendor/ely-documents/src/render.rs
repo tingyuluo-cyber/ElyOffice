@@ -239,6 +239,7 @@ struct Draw<'a> {
     /// Tables drawn so far.
     tables: std::cell::Cell<usize>,
     tasks: std::cell::Cell<usize>,
+    done: std::cell::Cell<bool>,
 }
 
 impl Draw<'_> {
@@ -249,6 +250,8 @@ impl Draw<'_> {
     }
 
     fn inline(&self, inline: &Inline, cx: &App) -> AnyElement {
+        let shown = tasks::completed_inline(inline, self.done.get());
+        let inline = shown.as_ref();
         let links = (!inline.links.is_empty()).then(|| self.key("links"));
         let on_link = select::link(self.select, self.hooks.on_link);
         if !inline.styles.iter().any(|(_, style)| *style == Style::Math) {
