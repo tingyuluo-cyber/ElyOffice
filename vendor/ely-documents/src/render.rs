@@ -31,6 +31,7 @@ mod table;
 pub(crate) use point::{OnPoint, Place, Pointed, point_lines};
 pub use select::RightPress;
 use select::{Gather, OnMenu, Selection};
+#[cfg(test)]
 use style::highlight;
 pub(crate) use table::{CellAt, OpenCell};
 
@@ -148,6 +149,7 @@ impl MarkdownRenderer {
 
 /// What an owner hands its drawing: pictures' folder and presses.
 pub(crate) struct Hooks<'a> {
+    pub color_marks: bool,
     pub base: &'a Option<Arc<Path>>,
     pub pictures: &'a Option<Rc<Pictures>>,
     pub on_link: &'a Option<OnLink>,
@@ -177,6 +179,7 @@ type Over = Vec<(Range<usize>, HighlightStyle)>;
 /// `inline` as text; hidden ranges lose highlight, `over` adds some.
 fn drawn_text(
     inline: &Inline,
+    color_marks: bool,
     (hidden, over): (&[Range<usize>], Over),
     links: Option<ElementId>,
     on_link: &Option<OnLink>,
@@ -185,9 +188,9 @@ fn drawn_text(
     let theme = cx.theme();
     let colors = &theme.colors;
     let rule = theme.underline_thickness();
-    let styles: Vec<_> = (inline.styles.iter())
+    let styles: Vec<_> = style::highlights(inline, colors, rule, color_marks)
+        .into_iter()
         .filter(|(range, _)| !hidden.contains(range))
-        .map(|(range, style)| (range.clone(), highlight(style, colors, rule)))
         .chain(over)
         .collect();
     let styled = StyledText::new(inline.text.clone()).with_highlights(crate::editor::stack(styles));
@@ -242,7 +245,14 @@ impl Draw<'_> {
             let over = self
                 .select
                 .map_or_else(Vec::new, |select| select.over(&inline.text, cx));
-            let (drawn, layout) = drawn_text(inline, (&[], over), links, self.hooks.on_link, cx);
+            let (drawn, layout) = drawn_text(
+                inline,
+                self.hooks.color_marks,
+                (&[], over),
+                links,
+                self.hooks.on_link,
+                cx,
+            );
             if let Some(select) = self.select {
                 select.push(&inline.text, layout.clone(), &inline.links);
             }
@@ -254,8 +264,13 @@ impl Draw<'_> {
             return self.point_text(drawn, at, inline);
         }
         let on_link = self.hooks.on_link.clone();
-        let (drawn, at) =
-            math_text::MathText::new(self.key("math"), inline.clone(), links, on_link);
+        let (drawn, at) = math_text::MathText::new(
+            self.key("math"),
+            inline.clone(),
+            links,
+            on_link,
+            self.hooks.color_marks,
+        );
         self.point_text(drawn.into_any_element(), at, inline)
     }
 
@@ -501,6 +516,7 @@ impl RenderOnce for MarkdownRenderer {
         let draw = Draw {
             id: &self.id,
             hooks: Hooks {
+                color_marks: false,
                 base: &self.base,
                 pictures: &self.pictures,
                 on_link: &self.on_link,

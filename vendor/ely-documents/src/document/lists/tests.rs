@@ -16,6 +16,32 @@ fn entered(text: &str, soft: bool) -> String {
 }
 
 #[test]
+fn enter_before_an_item_renumbers_the_following_siblings() {
+    for (text, at, expected) in [
+        (
+            "- 1. first\n  2. second",
+            2,
+            "- 1. \n  2. first\n  3. second",
+        ),
+        ("1. first\n2. second", 0, "1. \n2. first\n3. second"),
+        (
+            "8) first\n9) second\n10) third",
+            9,
+            "8) first\n9) \n10) second\n11) third",
+        ),
+        (
+            "> 1. first\r\n> 2. second",
+            2,
+            "> 1. \r\n> 2. first\r\n> 3. second",
+        ),
+    ] {
+        let (out, selection) = enter(text, at..at, false).expect("list start");
+        assert_eq!(out, expected);
+        assert!(out.is_char_boundary(selection.start));
+    }
+}
+
+#[test]
 fn nested_numbers_restart_and_join_existing_children() {
     assert_eq!(
         shifted("1. a\n2. b\n3. c\n4. d", "3. c", true),

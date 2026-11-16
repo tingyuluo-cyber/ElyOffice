@@ -177,7 +177,7 @@ fn reading_returns_to_the_editing_mode_and_width(cx: &mut TestAppContext) {
     assert!(edit_width.is_some());
     click(cx, "toggle wide-edit");
     assert_eq!(seen(cx), (Mode::Visual, None));
-    cx.simulate_keystrokes(secondary!("shift-e"));
+    cx.simulate_keystrokes(secondary!("/"));
     assert_eq!(seen(cx), (Mode::Source, None));
     cx.simulate_keystrokes(secondary!("e"));
     assert_eq!(seen(cx), (Mode::Preview, edit_width));
@@ -200,7 +200,7 @@ fn reading_returns_to_the_editing_mode_and_width(cx: &mut TestAppContext) {
     assert_eq!(seen(cx), (Mode::Source, None));
     click(cx, "toggle wide-edit");
     assert_eq!(seen(cx), (Mode::Source, edit_width));
-    cx.simulate_keystrokes(secondary!("shift-e"));
+    cx.simulate_keystrokes(secondary!("/"));
     assert_eq!(seen(cx), (Mode::Visual, edit_width));
     cx.simulate_keystrokes(secondary!("e"));
     assert_eq!(seen(cx), (Mode::Preview, None));
@@ -238,6 +238,8 @@ fn reading_shortcut_can_toggle_source_directly(cx: &mut TestAppContext) {
         assert_eq!(seen(cx), mode);
     }
     cx.simulate_keystrokes(secondary!("shift-e"));
+    assert_eq!(seen(cx), Mode::Source);
+    cx.simulate_keystrokes(secondary!("/"));
     assert_eq!(seen(cx), Mode::Visual);
     assert!(crate::look::load(&data.path().join("look.json")).expect("saved look").source_reading);
     assert!(!view.read_with(cx, |view, _| view.modified()));

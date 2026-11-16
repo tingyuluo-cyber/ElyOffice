@@ -11,6 +11,14 @@
 - 提供灵梦红白与八云紫 Nord 两套主题，以及 HTML、纯文本和 PDF 导出。
 - 文档保存在自己选择的位置。默认设置目录为 `%LOCALAPPDATA%\ElyMarkReimu`。
 
+## 0.1.20
+
+- 列表前插入条目后自动重排编号.
+- 选中文本后可连续输入星号添加强调和粗体.
+- 源码随窗口宽度和字号自动换行.
+- 中文斜体正常显示. 粗体与斜体使用不同主题色, 编辑和预览一致.
+- 默认取消 Ctrl+Shift+E, Ctrl+/ 切换源码.
+
 ## 构建
 
 准备 Windows x64、Visual Studio C++ Build Tools（含 Windows SDK）和 Rustup。Rust 版本由 `rust-toolchain.toml` 指定。

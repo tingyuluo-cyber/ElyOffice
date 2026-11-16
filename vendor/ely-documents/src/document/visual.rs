@@ -191,6 +191,7 @@ impl MarkdownDocument {
                     &("render", ix).into(),
                     nodes,
                     Hooks {
+                        color_marks: self.look.color_marks,
                         base: &self.base,
                         pictures: &None,
                         on_link: &self.on_link,
@@ -339,6 +340,7 @@ impl Render for MarkdownDocument {
         let colors = cx.theme().colors.clone();
         let root = div()
             .size_full()
+            .capture_key_down(cx.listener(Self::surround_selection))
             .bg(colors.surface)
             .font_weight(FontWeight::NORMAL)
             .on_drop(cx.listener(|_, dropped: &ExternalPaths, _, cx| {

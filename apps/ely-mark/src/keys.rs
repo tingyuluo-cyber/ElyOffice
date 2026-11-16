@@ -22,11 +22,7 @@ actions!(
 
 pub fn bind(reimu: bool, cx: &mut App) {
     let at = Some(commands::CONTEXT);
-    let source = if reimu {
-        secondary!("shift-e")
-    } else {
-        secondary!("/")
-    };
+    let source = secondary!("/");
     cx.bind_keys([
         KeyBinding::new(commands::OPEN_FOLDER.keys, commands::OpenFolder, at),
         KeyBinding::new(source, ToggleSource, at),

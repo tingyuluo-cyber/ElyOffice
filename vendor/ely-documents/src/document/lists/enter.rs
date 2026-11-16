@@ -15,6 +15,31 @@ pub(super) fn enter(
     let at = selection.start;
     let id = index.at(at)?;
     let item = &index.items[id];
+    let prefix: String = text[item.row..item.marker.start]
+        .chars()
+        .map(|ch| {
+            if ch == '>' || ch.is_whitespace() {
+                ch
+            } else {
+                ' '
+            }
+        })
+        .collect();
+    if !soft && selection.is_empty() && at == item.marker.start {
+        let newline = if text.contains("\r\n") { "\r\n" } else { "\n" };
+        let marker = &text[item.marker.clone()];
+        let task = ["[ ]", "[x]", "[X]"]
+            .iter()
+            .any(|mark| text[item.body..].starts_with(mark));
+        let task = if task { "[ ] " } else { "" };
+        let written = format!("{marker} {task}{newline}{prefix}");
+        let mut edits = vec![(at..at, written)];
+        let caret = at + marker.len() + 1 + task.len();
+        let mut ranges = std::iter::once(caret..caret).collect::<Vec<_>>();
+        let out = apply(text, &mut edits, &mut []);
+        let out = renumber(&index, &out, &edits, &[id], &[], &mut ranges);
+        return Some((out, ranges.remove(0)));
+    }
     if at < item.body || selection.end > item.position.end {
         return None;
     }
@@ -50,16 +75,6 @@ pub(super) fn enter(
     } else {
         "\n"
     };
-    let prefix: String = text[item.row..item.marker.start]
-        .chars()
-        .map(|ch| {
-            if ch == '>' || ch.is_whitespace() {
-                ch
-            } else {
-                ' '
-            }
-        })
-        .collect();
     let written = if soft {
         let indent = " ".repeat(item.body - item.marker.start);
         format!("  {newline}{prefix}{indent}")

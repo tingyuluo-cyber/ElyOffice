@@ -85,11 +85,31 @@ impl CodeEditor {
         }
         let scrolled = -self.scroll.0.borrow().base_handle.offset().y;
         let row = ((position.y - metrics.top + scrolled) / metrics.line).floor();
-        let row = self.frame.rows.get(row.max(0.0) as usize)?;
-        let Row::Line(line) = *row else {
+        let row = row.max(0.0) as usize;
+        let Row::Line(line) = *self.frame.rows.get(row)? else {
             return None;
         };
-        self.offset_in(line, position.x, window, cx)
+        if !self.options.soft_wrap {
+            return self.offset_in(line, position.x, window, cx);
+        }
+        let (range, shown) = self.segment_shown(row, line, cx);
+        let measured = Measured::new(
+            &shown,
+            cx.theme().mono_family.clone(),
+            self.metrics.size,
+            self.metrics.advance,
+            window,
+        );
+        let column = measured.column(position.x - self.metrics.left);
+        let text = &self.buffer.text()[range.clone()];
+        let column = shown.back(text, column);
+        Some(
+            range.start
+                + text
+                    .char_indices()
+                    .nth(column)
+                    .map_or(text.len(), |(at, _)| at),
+        )
     }
 
     /// The offset nearest window x on a line; none for a line the text has since lost.
@@ -239,14 +259,22 @@ impl EntityInputHandler for CodeEditor {
     ) -> Option<Bounds<Pixels>> {
         let range = self.byte_range(&range_utf16);
         let line = self.buffer.line_of(range.start);
-        let row = self
-            .frame
-            .rows
-            .iter()
-            .position(|row| *row == Row::Line(line))?;
-        let text = self.row_text(line);
-        let (shown, measured) = self.measured(line, window, cx);
-        let column = shown.column(text, self.buffer.point(range.start).1.min(text.len()));
+        let row = self.caret_row(range.start)?;
+        let (segment, shown) = self.segment_shown(row, line, cx);
+        let text = &self.buffer.text()[segment.clone()];
+        let measured = Measured::new(
+            &shown,
+            cx.theme().mono_family.clone(),
+            self.metrics.size,
+            self.metrics.advance,
+            window,
+        );
+        let column = shown.column(
+            text,
+            self.buffer.text()[segment.start..range.start]
+                .chars()
+                .count(),
+        );
         let metrics = self.metrics;
         let scrolled = -self.scroll.0.borrow().base_handle.offset().y;
         let origin = point(

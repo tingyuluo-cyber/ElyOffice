@@ -130,6 +130,7 @@ impl Look {
             font,
             scale: self.size as f32 / 100.0 * if reimu { 1.1 } else { 1.0 },
             line_numbers: self.line_numbers,
+            color_marks: true,
         }
     }
 }

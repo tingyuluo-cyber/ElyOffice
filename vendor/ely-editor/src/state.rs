@@ -77,6 +77,7 @@ pub(crate) struct Options {
     pub focus_line: bool,
     /// The caret's line stays mid-view.
     pub typewriter: bool,
+    pub soft_wrap: bool,
 }
 
 /// What the owner lays over the code.
@@ -119,6 +120,8 @@ pub struct Metrics {
     pub height: Pixels,
     /// One wheel line, as the code's list scrolls it.
     pub wheel: Pixels,
+    /// The text viewport's width.
+    pub width: Pixels,
 }
 
 const BLINK: Duration = Duration::from_millis(530);
@@ -164,6 +167,7 @@ pub struct CodeEditor {
     focused: bool,
     pub(crate) chat_field: gpui::Entity<TextInput>,
     pub(crate) frame: Frame,
+    pub(crate) upstream: BTreeSet<(u64, usize)>,
     blink_epoch: u64,
     _blink: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
@@ -239,6 +243,7 @@ impl CodeEditor {
                 scale: 1.0,
                 focus_line: false,
                 typewriter: false,
+                soft_wrap: false,
             },
             marks: Marks::default(),
             marked: None,
@@ -251,6 +256,7 @@ impl CodeEditor {
             focused: false,
             chat_field,
             frame: Frame::default(),
+            upstream: BTreeSet::new(),
             blink_epoch: 0,
             _blink: None,
             _subscriptions: subscriptions,
@@ -481,6 +487,13 @@ impl CodeEditor {
 
     pub(crate) fn set_selections(&mut self, selections: Vec<Selection>, cx: &mut Context<Self>) {
         self.selections = merged(selections);
+        self.upstream.retain(|(stamp, at)| {
+            *stamp == self.buffer.stamp()
+                && self
+                    .selections
+                    .iter()
+                    .any(|selection| selection.head == *at)
+        });
         self.unfold_cursors();
         self.restart_blink(cx);
     }

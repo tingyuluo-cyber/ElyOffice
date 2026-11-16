@@ -35,6 +35,7 @@ pub(super) struct MathText {
     inline: Inline,
     links: Option<ElementId>,
     on_link: Option<OnLink>,
+    color_marks: bool,
     shown: Rc<RefCell<Option<Shown>>>,
     text: Option<AnyElement>,
     /// Each picture, its size, and the drawn span it covers.
@@ -50,6 +51,7 @@ impl MathText {
         inline: Inline,
         links: Option<ElementId>,
         on_link: Option<OnLink>,
+        color_marks: bool,
     ) -> (Self, impl Fn(Point<Pixels>) -> usize + 'static) {
         let shown = Rc::new(RefCell::new(None));
         let read = shown.clone();
@@ -67,6 +69,7 @@ impl MathText {
             inline,
             links,
             on_link,
+            color_marks,
             shown,
             text: None,
             pictures: Vec::new(),
@@ -212,6 +215,7 @@ impl Element for MathText {
             .collect();
         let (mut text, layout) = drawn_text(
             &inline,
+            self.color_marks,
             (&hidden, said),
             self.links.clone(),
             &self.on_link,
@@ -348,7 +352,7 @@ mod tests {
                 styles: vec![(self.math.clone(), Style::Math)],
                 ..Inline::default()
             };
-            let (text, at) = MathText::new("probe".into(), inline, None, None);
+            let (text, at) = MathText::new("probe".into(), inline, None, None, false);
             *self.found.borrow_mut() = Some((text.shown.clone(), Box::new(at)));
             let shell = gpui::div()
                 .w(gpui::px(self.width))

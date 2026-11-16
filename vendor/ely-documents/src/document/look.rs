@@ -21,6 +21,8 @@ pub struct DocumentLook {
     pub scale: f32,
     /// Source mode numbers its lines.
     pub line_numbers: bool,
+    /// Strong and emphasized text use distinct theme colors.
+    pub color_marks: bool,
 }
 
 impl Default for DocumentLook {
@@ -32,6 +34,7 @@ impl Default for DocumentLook {
             font: None,
             scale: 1.0,
             line_numbers: false,
+            color_marks: false,
         }
     }
 }
@@ -45,6 +48,7 @@ impl MarkdownDocument {
     /// Sets how the document shows its text.
     pub fn set_look(&mut self, look: DocumentLook, cx: &mut Context<Self>) {
         log::info!("markdown document: look {look:?}");
+        self.color_marks.set(look.color_marks);
         self.editor.update(cx, |editor, cx| {
             editor.set_scale(look.scale, cx);
             editor.set_focus_line(look.focus, cx);

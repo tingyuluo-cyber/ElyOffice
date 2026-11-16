@@ -9,7 +9,7 @@ use gpui::{
 use super::{
     cursor::Selection,
     gutter::Cell,
-    layout::{Shown, stack},
+    layout::stack,
     measure::Measured,
     state::{CodeEditor, CursorShape},
 };
@@ -33,7 +33,16 @@ impl CodeEditor {
         let touches = |span: &Range<usize>| {
             span.start < range.end.max(range.start + 1) && range.start < span.end
         };
-        let mut spans = self.line_colors(self.row_text(line), cx);
+        let mut spans = if self.options.soft_wrap && self.frame.stamp == self.buffer.stamp() {
+            let cached = self.frame.colors.borrow().get(&line).cloned();
+            cached.unwrap_or_else(|| {
+                let colors = self.line_colors(self.row_text(line), cx);
+                self.frame.colors.borrow_mut().insert(line, colors.clone());
+                colors
+            })
+        } else {
+            self.line_colors(self.row_text(line), cx)
+        };
         // Offsets found in an older text are left out.
         let fresh = self.frame.stamp == self.buffer.stamp();
         let brackets = self
@@ -162,9 +171,8 @@ impl CodeEditor {
         let theme = cx.theme();
         let colors = theme.colors.clone();
         let (advance, height) = (self.frame.advance, self.frame.line);
-        let text = self.row_text(line);
-        let range = self.row_range(line);
-        let shown = Shown::new(text, self.notes(line, cx), self.styles(line, cx));
+        let (range, shown) = self.segment_shown(row, line, cx);
+        let text = &self.buffer.text()[range.clone()];
         let measured = Measured::new(
             &shown,
             theme.mono_family.clone(),
@@ -178,8 +186,13 @@ impl CodeEditor {
         let focused = self.focus.is_focused(window);
         let primary = self.primary();
         let current = primary.is_empty() && self.buffer.line_of(primary.head) == line;
-        let column_of =
-            |offset: usize| shown.column(text, self.buffer.point(offset).1.min(text.len()));
+        let column_of = |offset: usize| {
+            let offset = offset.clamp(range.start, range.end);
+            shown.column(
+                text,
+                self.buffer.text()[range.start..offset].chars().count(),
+            )
+        };
         let selections = self.selections.iter().filter_map(|selection| {
             let span = selection.range();
             if span.is_empty() || span.end < range.start || span.start > range.end {
@@ -190,7 +203,7 @@ impl CodeEditor {
             } else {
                 column_of(span.start)
             };
-            let past = span.end > range.end;
+            let past = span.end > range.end && range.end == self.row_range(line).end;
             let end = if past {
                 column_of(range.end) + 1
             } else {
@@ -253,7 +266,7 @@ impl CodeEditor {
         let carets = self
             .selections
             .iter()
-            .filter(|selection| self.buffer.line_of(selection.head) == line)
+            .filter(|selection| self.caret_row(selection.head) == Some(row))
             .filter(|_| focused && self.caret_on)
             .map(|selection| {
                 let column = column_of(selection.head);
@@ -378,7 +391,12 @@ impl CodeEditor {
                     editor.drag(line, event, window, cx)
                 }),
             );
-        base.child(self.gutter(Cell::Line(line), row, cx))
+        let cell = if range.start == self.row_range(line).start {
+            Cell::Line(line)
+        } else {
+            Cell::Blank
+        };
+        base.child(self.gutter(cell, row, cx))
             .child(code)
             .into_any_element()
     }
@@ -392,7 +410,7 @@ impl CodeEditor {
         cx: &mut Context<Self>,
     ) {
         window.focus(&self.focus, cx);
-        let Some(at) = self.offset_in(line, event.position.x, window, cx) else {
+        let Some(at) = self.offset_at(event.position, window, cx) else {
             return;
         };
         let chosen = match event.click_count {
@@ -430,18 +448,21 @@ impl CodeEditor {
             }
         };
         self.set_selections(chosen, cx);
+        if self.primary().head == at {
+            self.set_upstream_at(at, event.position);
+        }
     }
 
     /// A right press keeps a selection it lands in.
     pub(crate) fn secondary_press(
         &mut self,
-        line: usize,
+        _line: usize,
         event: &MouseDownEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         window.focus(&self.focus, cx);
-        let Some(at) = self.offset_in(line, event.position.x, window, cx) else {
+        let Some(at) = self.offset_at(event.position, window, cx) else {
             return;
         };
         let held = (self.selections.iter()).any(|selection| {
@@ -450,13 +471,14 @@ impl CodeEditor {
         });
         if !held {
             self.set_selections(vec![Selection::caret(at)], cx);
+            self.set_upstream_at(at, event.position);
         }
     }
 
     /// A drag over a line stretches the primary selection to where the pointer is.
     pub(crate) fn drag(
         &mut self,
-        line: usize,
+        _line: usize,
         event: &MouseMoveEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -464,16 +486,22 @@ impl CodeEditor {
         if !self.dragging || !event.dragging() {
             return;
         }
-        let Some(at) = self.offset_in(line, event.position.x, window, cx) else {
+        let Some(at) = self.offset_at(event.position, window, cx) else {
             return;
         };
         let mut all = self.selections.clone();
         let primary = all.last_mut().expect("an editor keeps a cursor");
         if primary.head == at {
+            let upstream = self.upstream_at(at, event.position);
+            if self.upstream.contains(&(self.buffer.stamp(), at)) != upstream.is_some() {
+                self.set_upstream_at(at, event.position);
+                cx.notify();
+            }
             return;
         }
         primary.head = at;
         primary.goal = None;
         self.set_selections(all, cx);
+        self.set_upstream_at(at, event.position);
     }
 }

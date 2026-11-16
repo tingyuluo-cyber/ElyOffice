@@ -1,6 +1,7 @@
 mod chinese;
 mod stale;
 mod wide;
+mod wrap;
 
 use std::{cell::Cell, rc::Rc, time::Duration};
 

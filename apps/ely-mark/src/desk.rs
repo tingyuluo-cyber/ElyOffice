@@ -417,10 +417,9 @@ impl Render for Desk {
             let tools = if self.look.focus { None } else { mode };
             let wide = if mode == Some(Mode::Preview) { self.look.wide_preview } else { self.look.wide_edit };
             shell = shell.rail(px(48.0), reimu::rail(tools, side, minimap, wide, window, cx));
-            if mode.is_some() && !self.look.focus {
-                if let Some(wallpaper) = reimu::wallpaper(art, minimap, cx) {
+            if mode.is_some() && !self.look.focus
+                && let Some(wallpaper) = reimu::wallpaper(art, minimap, cx) {
                     shell = shell.workspace_decoration(wallpaper);
-                }
             }
         }
         if side {

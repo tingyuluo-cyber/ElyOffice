@@ -274,7 +274,8 @@ impl MarkdownDocument {
             true => target.start - range.start,
             false => shift + typed.len() + target.start - open.range.end,
         };
-        let (input, subscriptions) = Self::new_field(source, false, window, cx);
+        let (input, subscriptions) =
+            Self::new_field(source, false, self.color_marks.clone(), window, cx);
         input.update(cx, |input, cx| {
             input.select_from(anchor + shift, head + shift, cx)
         });

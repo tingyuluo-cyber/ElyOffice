@@ -11,7 +11,7 @@ use crate::{
     primitives::lent,
     {
         MarkdownMode,
-        markdown::markdown_highlights,
+        markdown::highlights,
         modes::{at_edge, joint},
     },
 };
@@ -158,7 +158,8 @@ impl MarkdownDocument {
             },
         };
         let source = text[range.clone()].to_string();
-        let (input, subscriptions) = Self::new_field(source, cell.is_some(), window, cx);
+        let (input, subscriptions) =
+            Self::new_field(source, cell.is_some(), self.color_marks.clone(), window, cx);
         if let Some(caret) = caret {
             input.update(cx, |input, cx| input.select(caret..caret, cx));
         }
@@ -184,11 +185,13 @@ impl MarkdownDocument {
     pub(super) fn new_field(
         source: String,
         cell: bool,
+        colors: std::rc::Rc<std::cell::Cell<bool>>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> (Entity<TextInput>, Vec<Subscription>) {
         let input = cx.new(|cx| {
-            let input = TextInput::new(window, cx).highlighter(markdown_highlights);
+            let input = TextInput::new(window, cx)
+                .highlighter(move |text, cx| highlights(text, cx, colors.get()));
             match cell {
                 true => input,
                 false => input.multi_line(1, usize::MAX),

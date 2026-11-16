@@ -501,3 +501,18 @@ fn latex_delimiters_leave_code_escapes_and_open_pairs() {
         "a blank line ends the formula: {split:?}"
     );
 }
+#[test]
+fn escaped_stars_preview_as_literal_characters() {
+    for (source, expected) in [
+        (r"\*", "*"),
+        (r"\*\*中文\*\*", "**中文**"),
+        (r"文字 \* and \_ and \\", "文字 * and _ and \\"),
+        (r"**中文** \*", "中文 *"),
+    ] {
+        let nodes = parse(source);
+        let [super::Node::Paragraph(inline)] = &nodes[..] else {
+            panic!("paragraph: {nodes:?}")
+        };
+        assert_eq!(inline.text, expected);
+    }
+}

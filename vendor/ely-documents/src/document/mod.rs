@@ -14,11 +14,12 @@ mod span;
 mod tables;
 #[cfg(all(test, feature = "test-support"))]
 mod tests;
+mod typing;
 mod visual;
 
 pub(crate) use visual::bind_keys;
 
-use std::{ops::Range, path::Path, rc::Rc, sync::Arc, time::Duration};
+use std::{cell::Cell, ops::Range, path::Path, rc::Rc, sync::Arc, time::Duration};
 
 use gpui::{
     App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable, ListAlignment,
@@ -36,7 +37,7 @@ pub use tables::{TableEdit, TableRefusal};
 
 use super::{
     MarkdownMode,
-    markdown::markdown_highlights,
+    markdown::highlights,
     modes::joint,
     render::{CellAt, OnHeading, OnLink},
 };
@@ -126,6 +127,7 @@ pub struct MarkdownDocument {
     /// A block asked open before its text was read.
     waiting: Option<(Option<usize>, edit::Landing, bool, u64)>,
     look: DocumentLook,
+    color_marks: Rc<Cell<bool>>,
     /// Typing in the open block, counted.
     typed: u64,
     /// Typewriter room past each end of the list.
@@ -161,12 +163,15 @@ impl MarkdownDocument {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let color_marks = Rc::new(Cell::new(false));
+        let colors = color_marks.clone();
         let editor = cx.new(|cx| {
             CodeEditor::new(text, window, cx)
                 .language("Markdown")
+                .soft_wrap()
                 .line_numbers(LineNumbers::Hidden)
                 .hide_indent_guides()
-                .highlighter(markdown_highlights)
+                .highlighter(move |text, cx| highlights(text, cx, colors.get()))
         });
         let focus = cx.focus_handle();
         let subscriptions = vec![
@@ -202,6 +207,7 @@ impl MarkdownDocument {
             showing: None,
             waiting: None,
             look: DocumentLook::default(),
+            color_marks,
             typed: 0,
             centered: None,
             room: Pixels::ZERO,

@@ -43,6 +43,7 @@ mod tasks;
 mod tests;
 mod view;
 mod welcome;
+mod wrap;
 
 pub use buffer::Buffer;
 pub use chat::InlineChat;
