@@ -6,6 +6,8 @@ use super::{MarkView, Mode, Reported};
 use crate::engine::{Text, mark};
 use crate::text::Source;
 
+mod preview_tasks;
+
 fn open<'a>(
     text: &str,
     cx: &'a mut TestAppContext,

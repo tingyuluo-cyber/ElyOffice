@@ -396,6 +396,7 @@ mod secondary;
 mod span;
 mod toc;
 mod tools;
+mod tasks;
 
 #[gpui::test]
 fn typed_source_reads_after_a_pause(cx: &mut TestAppContext) {

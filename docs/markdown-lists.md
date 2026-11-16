@@ -13,6 +13,8 @@ Source and visual editing use the same implementation in `vendor/ely-documents/s
 
 Moving a parent also moves its continuation lines and children. A first item without a preceding sibling stays at its current level. List editing preserves quote prefixes, numbered-list delimiters, existing list starts, CRLF, selections and undo. Number changes are limited to affected sibling lists. Code blocks, math, HTML and front matter do not create list continuations.
 
+Preview task checkboxes toggle `[ ]`, `[x]` and `[X]` in the document. Each click changes only the marker's middle byte and creates one step in the shared source/visual undo history. Nested, quoted, numbered and empty tasks work the same way. Tab reaches the checkbox; Space or Enter toggles it. Task text stays read-only in preview. Callbacks from an older parse or mode are ignored. See the [0.1.21 review and validation](reviews/0.1.21-preview-tasks.md).
+
 Files above `LARGEST_READ` remain source-only. Tab and Shift+Tab use plain line indentation without parsing a Markdown tree or renumbering lists.
 
 The local crate is from Ely-GPUI-Components commit `e0f355ac1a669c24336244bcaa8131f7f0e4f1b5`, with its MIT license preserved. The Git dependency patch keeps these interactions in the shared component rather than duplicating them in an application.

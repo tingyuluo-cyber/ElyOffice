@@ -38,7 +38,7 @@ impl Draw<'_> {
                         .h(text * LINE)
                         .flex()
                         .items_center()
-                        .child(
+                        .child(self.task(*done, body).unwrap_or_else(|| {
                             svg()
                                 .debug_selector(move || format!("markdown-task-{ix}"))
                                 .data(
@@ -55,8 +55,9 @@ impl Draw<'_> {
                                     colors.focus
                                 } else {
                                     colors.fg_subtle
-                                }),
-                        )
+                                })
+                                .into_any_element()
+                        }))
                         .into_any_element(),
                     (None, Some(first)) => div()
                         .text_color(colors.fg_muted)

@@ -12,6 +12,7 @@ mod place;
 mod point;
 mod span;
 mod tables;
+mod tasks;
 #[cfg(all(test, feature = "test-support"))]
 mod tests;
 mod typing;

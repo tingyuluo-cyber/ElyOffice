@@ -16,6 +16,8 @@ pub(crate) struct Block {
     pub kind: TargetBlock,
     /// None shows a link definition as written.
     pub nodes: Option<Vec<Node>>,
+    /// Task marker bytes, in the same depth-first order as the drawn items.
+    pub tasks: Vec<usize>,
 }
 
 /// A file read as blocks and headings.
@@ -49,6 +51,7 @@ pub(crate) fn parsed(text: &str) -> Parsed {
                 range: range.start..range.start + kept,
                 kind: TargetBlock::of(node, text),
                 nodes,
+                tasks: super::tasks::markers(text, node),
             }
         })
         .collect();
