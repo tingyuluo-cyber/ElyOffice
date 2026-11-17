@@ -385,6 +385,7 @@ mod leave;
 mod lend;
 mod links;
 mod look;
+mod mode_selection;
 mod open_look;
 mod place;
 mod point;

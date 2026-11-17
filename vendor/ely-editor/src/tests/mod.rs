@@ -1,4 +1,5 @@
 mod chinese;
+mod pointer;
 mod stale;
 mod wide;
 mod wrap;

@@ -87,7 +87,7 @@ impl MathText {
 }
 
 /// Where original byte `at` is drawn.
-fn forward(swaps: &[Swap], at: usize) -> usize {
+pub(super) fn forward(swaps: &[Swap], at: usize) -> usize {
     let mut shift = 0isize;
     for (written, drawn) in swaps {
         if at < written.start {

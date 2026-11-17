@@ -12,6 +12,7 @@ mod place;
 mod point;
 mod preview;
 mod span;
+mod switch;
 mod tables;
 mod tasks;
 #[cfg(all(test, feature = "test-support"))]
@@ -106,6 +107,8 @@ pub struct MarkdownDocument {
     editor: Entity<CodeEditor>,
     mode: MarkdownMode,
     preview: Option<preview::Preview>,
+    /// Source ends to select once the preview's parse is ready.
+    preview_selection: Option<((usize, usize), u64)>,
     base: Option<Arc<Path>>,
     parsed: Arc<Parsed>,
     /// Text changes counted; a read of an older one lapses.
@@ -195,6 +198,7 @@ impl MarkdownDocument {
             editor,
             mode,
             preview: None,
+            preview_selection: None,
             base: None,
             parsed: Arc::default(),
             edits: 0,
@@ -245,28 +249,6 @@ impl MarkdownDocument {
     /// How it shows the text now.
     pub fn mode(&self) -> MarkdownMode {
         self.mode
-    }
-
-    /// Shows `mode` at the same line; an open block writes.
-    pub fn set_mode(&mut self, mode: MarkdownMode, window: &mut Window, cx: &mut Context<Self>) {
-        self.commit(cx);
-        log::info!("markdown document: {:?} to {mode:?}", self.mode);
-        if !self.read_now(cx) {
-            self.reparse(true, cx);
-        }
-        let listed = |mode| matches!(mode, MarkdownMode::Visual | MarkdownMode::Preview);
-        // Visual and preview share one list and its scroll.
-        let top = (!(listed(self.mode) && listed(mode))).then(|| self.top_line(cx));
-        self.mode = mode;
-        self.preview = None;
-        if let Some(top) = top {
-            self.set_top_line(top, window, cx);
-        }
-        let focus = self.focus_handle(cx);
-        window.focus(&focus, cx);
-        // Preview to visual keeps one handle: no focus event.
-        self.focused(window, cx);
-        cx.notify();
     }
 
     /// The text now, an open block's typing included.

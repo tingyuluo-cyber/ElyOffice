@@ -8,6 +8,8 @@ use gpui::{
 use super::RightPress;
 use crate::{render::MarkdownRenderer, theme::Theme};
 
+mod hit;
+
 /// Selectable `source`, its right presses kept.
 struct Body {
     source: &'static str,

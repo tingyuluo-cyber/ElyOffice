@@ -100,7 +100,7 @@ fn preview_copies_lists_tables_code_frontmatter_and_inline_math(cx: &mut TestApp
 }
 
 #[gpui::test]
-fn preview_selection_clears_on_mode_or_document_change(cx: &mut TestAppContext) {
+fn preview_selection_survives_modes_and_clears_on_document_change(cx: &mut TestAppContext) {
     let (document, cx) = open("Old **text**", MarkdownMode::Preview, cx);
     cx.simulate_keystrokes("secondary-a");
     assert_eq!(copy(cx), "Old text");
@@ -111,7 +111,7 @@ fn preview_selection_clears_on_mode_or_document_change(cx: &mut TestAppContext) 
         document.set_mode(MarkdownMode::Preview, window, cx)
     });
     frames(cx);
-    assert_eq!(copy(cx), "before");
+    assert_eq!(copy(cx), "Old text");
     cx.simulate_keystrokes("secondary-a");
     document.update(cx, |document, cx| document.set_text("New 文本", cx));
     frames(cx);

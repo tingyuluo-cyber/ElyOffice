@@ -232,7 +232,7 @@ impl Render for MarkdownDocument {
         self.show_waiting(window, cx);
         self.open_waiting(window, cx);
         self.aim_waiting(window, cx);
-        self.prepare_preview(cx);
+        self.prepare_preview(window, cx);
         let colors = cx.theme().colors.clone();
         let root = div()
             .size_full()

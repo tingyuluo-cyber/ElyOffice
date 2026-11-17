@@ -17,6 +17,8 @@ Preview task checkboxes toggle `[ ]`, `[x]` and `[X]` in the document. Each clic
 
 In preview, completed task text uses the same strikethrough styling as `~~text~~`. Unchecking removes only the completion styling; explicit Markdown strikes remain. Each nested item uses its own checked state. Rendering preserves source text, selection offsets, inline formatting and links. See the [0.1.23 review and validation](reviews/0.1.23-completed-tasks.md).
 
+Source and preview carry the selected text across mode changes and reveal it, including inside a single soft-wrapped paragraph. Preview clicks and drags map back to Markdown character boundaries. With no selection or preview click, mode changes keep the previous top line. Pointer hits use the nearest drawn text in paragraphs and table cells; exact line boundaries belong to the following line. See the [selection navigation review](reviews/selection-navigation.md).
+
 Files above `LARGEST_READ` remain source-only. Tab and Shift+Tab use plain line indentation without parsing a Markdown tree or renumbering lists.
 
 The local crate is from Ely-GPUI-Components commit `e0f355ac1a669c24336244bcaa8131f7f0e4f1b5`, with its MIT license preserved. The Git dependency patch keeps these interactions in the shared component rather than duplicating them in an application.

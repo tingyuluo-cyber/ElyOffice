@@ -290,7 +290,14 @@ impl MarkdownDocument {
         self.orphan = Some(open.input.focus_handle(cx));
         cx.notify();
         let typed = open.input.read(cx).text().to_string();
-        let caret = open.input.read(cx).cursor();
+        let input = open.input.read(cx);
+        let picked = input.selection();
+        let head = input.cursor();
+        let anchor = if head == picked.start {
+            picked.end
+        } else {
+            picked.start
+        };
         let text = self.editor.read(cx).text();
         let edges = cells::edges(text, open.range.clone());
         let (lead, written) = match open.append {
@@ -299,11 +306,12 @@ impl MarkdownDocument {
             false if open.cell.is_some() => (0, cells::kept(&typed, edges)),
             false => (0, typed.clone()),
         };
-        let caret = match open.cell {
-            Some(_) => cells::kept_at(&typed, caret, edges),
-            None => caret,
+        let offset = |at| match open.cell {
+            Some(_) => cells::kept_at(&typed, at, edges),
+            None => at,
         };
-        let at = open.range.start + lead + caret;
+        let anchor = open.range.start + lead + offset(anchor);
+        let head = open.range.start + lead + offset(head);
         let edit = (text[open.range.clone()] != written).then(|| {
             log::info!("markdown document: block {:?} written back", open.range);
             (open.range.clone(), written.len())
@@ -321,9 +329,10 @@ impl MarkdownDocument {
                 return None;
             }
         }
-        // The one caret follows the block's.
-        self.editor
-            .update(cx, |editor, cx| editor.select(std::iter::once(at..at), cx));
+        // Keep both ends when the field closes or changes modes.
+        self.editor.update(cx, |editor, cx| {
+            editor.select(std::iter::once(anchor..head), cx)
+        });
         edit
     }
 

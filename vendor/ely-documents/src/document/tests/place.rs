@@ -217,7 +217,7 @@ fn the_selection_reads_in_source_and_in_an_open_block(cx: &mut TestAppContext) {
         });
         frames(cx);
         let selected = document.read_with(cx, |document, cx| document.selected(cx));
-        assert_eq!(selected, "", "{mode:?} shows no source selection");
+        assert_eq!(selected, "One", "{mode:?} keeps the selected text");
     }
     super::type_in(&document, Some(1), None, cx);
     document.update(cx, |document, cx| {

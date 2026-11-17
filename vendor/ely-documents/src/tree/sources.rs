@@ -185,7 +185,20 @@ impl Drawn {
 impl Inline {
     /// Source byte under drawn byte `at`, in some piece.
     pub(crate) fn source_at(&self, source: &str, at: usize) -> Option<usize> {
-        let piece = self.sources.partition_point(|(start, ..)| *start <= at);
+        self.source_boundary(source, at, false)
+    }
+
+    /// A selection end at a shared boundary belongs to the preceding piece.
+    pub(crate) fn source_end(&self, source: &str, at: usize) -> Option<usize> {
+        self.source_boundary(source, at, at > 0)
+    }
+
+    fn source_boundary(&self, source: &str, at: usize, upstream: bool) -> Option<usize> {
+        let piece = self.sources.partition_point(
+            |(start, ..)| {
+                if upstream { *start < at } else { *start <= at }
+            },
+        );
         let (start, span, escapes) = self.sources.get(piece.checked_sub(1)?)?;
         let end = self
             .sources

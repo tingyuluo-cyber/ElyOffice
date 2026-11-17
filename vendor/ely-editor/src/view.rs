@@ -75,6 +75,14 @@ impl CodeEditor {
             .scroll_to_item_strict(row.unwrap_or(line + self.pad), ScrollStrategy::Top);
     }
 
+    /// Reveals a source byte using the current soft-wrapped rows.
+    pub fn reveal_offset(&self, at: usize) {
+        if let Some(row) = self.caret_row(at) {
+            self.scroll
+                .scroll_to_item_strict(row, ScrollStrategy::Center);
+        }
+    }
+
     /// The handle the code scrolls by, for a bar beside it.
     pub fn scroll_handle(&self) -> ScrollHandle {
         self.scroll.0.borrow().base_handle.clone()

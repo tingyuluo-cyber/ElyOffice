@@ -10,7 +10,7 @@ use gpui::{
 use crate::theme::ActiveTheme;
 
 mod content;
-pub(crate) use content::{content, raw};
+pub(crate) use content::{Source, content, raw};
 
 /// What a right press on selectable text found.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -31,8 +31,8 @@ pub(crate) type OnMenu = Rc<dyn Fn(RightPress, &mut Window, &mut App)>;
 /// A byte of one drawn text, texts counted in drawing order.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Spot {
-    text: usize,
-    at: usize,
+    pub(crate) text: usize,
+    pub(crate) at: usize,
 }
 
 /// One drawn text, as the last frame laid it out.
@@ -67,6 +67,7 @@ pub(crate) struct Selection {
     anchor: Spot,
     head: Spot,
     dragging: bool,
+    positioned: bool,
     texts: Vec<Drawn>,
     visible: Vec<Range<usize>>,
 }
@@ -78,6 +79,7 @@ impl Selection {
             anchor: Spot::default(),
             head: Spot::default(),
             dragging: false,
+            positioned: false,
             texts: Vec::new(),
             visible: Vec::new(),
         }
@@ -92,12 +94,33 @@ impl Selection {
         copied(&self.texts, self.span())
     }
 
+    pub(crate) fn ends(&self) -> Option<(Spot, Spot)> {
+        self.positioned.then_some((self.anchor, self.head))
+    }
+
+    pub(crate) fn select(&mut self, anchor: Spot, head: Spot) {
+        self.anchor = anchor;
+        self.head = head;
+        self.positioned = anchor != head;
+    }
+
+    /// A selected byte's position in the current drawn layout.
+    pub(crate) fn position(&self, spot: Spot) -> Option<Point<Pixels>> {
+        let drawn = self.texts.get(spot.text)?;
+        let at = match &drawn.mapped {
+            Some(hit) => super::math_text::forward(&hit.borrow().as_ref()?.swaps, spot.at),
+            None => spot.at,
+        };
+        drawn.layout()?.position_for_index(at)
+    }
+
     pub(crate) fn reset(&mut self, texts: Vec<Drawn>, focus: FocusHandle) {
         self.texts = texts;
         self.focus = focus;
         self.anchor = Spot::default();
         self.head = Spot::default();
         self.dragging = false;
+        self.positioned = false;
         self.visible.clear();
     }
 
@@ -112,8 +135,7 @@ impl Selection {
 
     /// The spot under `position`: a text beside it, or one past it.
     fn spot(&self, position: Point<Pixels>) -> Option<Spot> {
-        let mut last = None;
-        let mut beside: Option<(Pixels, usize)> = None;
+        let mut nearest = None;
         for (k, drawn) in self.texts.iter().enumerate() {
             let Some(layout) = drawn.layout() else {
                 continue;
@@ -122,30 +144,31 @@ impl Selection {
             if bounds.size.height <= Pixels::ZERO {
                 continue;
             }
-            last = Some(k);
-            if position.y < bounds.top() {
-                if beside.is_none() {
-                    return Some(Spot { text: k, at: 0 });
-                }
-                break;
-            }
-            if position.y <= bounds.bottom() {
-                let gap = (bounds.left() - position.x)
-                    .max(position.x - bounds.right())
-                    .max(Pixels::ZERO);
-                if beside.is_none_or(|(best, _)| gap < best) {
-                    beside = Some((gap, k));
-                }
+            // A cell can hold several paragraphs; traversal is not sorted by y.
+            let vertical = (bounds.top() - position.y)
+                .max(position.y - bounds.bottom())
+                .max(Pixels::ZERO);
+            let horizontal = (bounds.left() - position.x)
+                .max(position.x - bounds.right())
+                .max(Pixels::ZERO);
+            let distance = (vertical, horizontal);
+            if nearest.is_none_or(|(best, _)| distance < best) {
+                nearest = Some((distance, k));
             }
         }
-        let Some((_, k)) = beside else {
-            let last = last?;
-            let at = self.texts[last].text.len();
-            return Some(Spot { text: last, at });
-        };
+        let (_, k) = nearest?;
         let drawn = &self.texts[k];
         let layout = drawn.layout().expect("a drawn text");
         let bounds = layout.bounds();
+        if position.y < bounds.top() {
+            return Some(Spot { text: k, at: 0 });
+        }
+        if position.y >= bounds.bottom() {
+            return Some(Spot {
+                text: k,
+                at: drawn.text.len(),
+            });
+        }
         let across = point(position.x.clamp(bounds.left(), bounds.right()), position.y);
         let (Ok(at) | Err(at)) = layout.index_for_position(across);
         let at = drawn.mapped.as_ref().map_or(at, |hit| {
@@ -295,6 +318,7 @@ impl Gather {
                 selection.anchor = Spot::default();
                 selection.head = Spot::default();
                 selection.dragging = false;
+                selection.positioned = false;
                 cx.notify();
             }
             selection.texts = texts;
@@ -365,6 +389,7 @@ pub(crate) fn selectable(body: Div, state: Entity<Selection>, on_menu: OnMenu, c
                     selection.anchor = spot;
                 }
                 selection.head = spot;
+                selection.positioned = true;
                 selection.dragging = true;
                 cx.notify();
             })
@@ -425,6 +450,7 @@ pub(crate) fn selectable(body: Div, state: Entity<Selection>, on_menu: OnMenu, c
                             text: selection.texts.len() - 1,
                             at: last.text.len(),
                         };
+                        selection.positioned = true;
                         cx.notify();
                     });
                     cx.stop_propagation();
