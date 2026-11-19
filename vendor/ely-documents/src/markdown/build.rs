@@ -10,6 +10,7 @@ mod text;
 use text::Run;
 
 use super::{
+    entities::shorthands,
     flow::{self, Flow},
     front,
     mdast::{self, AlignKind, Leaf, Node, Parent},
@@ -155,7 +156,7 @@ impl Builder<'_> {
         if let Kind::Image { depth, .. } = self.top_kind()
             && !(*depth == 0 && matches!(event, Event::End(_)))
         {
-            return self.alt(event);
+            return self.alt(event, span);
         }
         if matches!(self.top_kind(), Kind::Code { .. } | Kind::Html) {
             match event {
@@ -250,7 +251,8 @@ impl Builder<'_> {
     }
 
     /// An image's alt: the text of what it holds.
-    fn alt(&mut self, event: Event) {
+    fn alt(&mut self, event: Event, span: Range<usize>) {
+        let source = self.source;
         let frame = self.top();
         let Kind::Image { depth, muted, .. } = &mut frame.kind else {
             unreachable!("alt text belongs to an image")
@@ -270,8 +272,11 @@ impl Builder<'_> {
                 }
             }
             _ if muted.is_some() => {}
-            Event::Text(text)
-            | Event::Code(text)
+            Event::Text(text) if source.get(span.clone()) == Some(text.as_ref()) => {
+                let mut entities = shorthands(source, span).peekable();
+                text::push_prose(&mut frame.value, &text, 0..text.len(), &mut entities);
+            }
+            Event::Text(text) | Event::Code(text)
             | Event::InlineMath(text)
             | Event::DisplayMath(text) => frame.value.push_str(&text),
             Event::SoftBreak | Event::HardBreak => frame.value.push('\n'),

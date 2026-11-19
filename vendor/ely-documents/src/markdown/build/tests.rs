@@ -2,6 +2,7 @@ use super::{
     super::{super::clock::spent, mdast::Node},
     tree,
 };
+use crate::tree::{Node as Rendered, parse};
 
 fn blocks(root: &Node) -> &[Node] {
     root.children().expect("the root holds blocks")
@@ -50,6 +51,29 @@ fn closing_parentheses_trail_off_in_linear_time() {
 #[test]
 fn many_literal_links_read_in_linear_time() {
     linear(|n| "www.a.b &amp; ".repeat(n * 16));
+}
+
+#[test]
+fn named_references_without_semicolons_read_in_markdown_text() {
+    let source = r"A **&rarr** [&copy](/path?value=&rarr), &NotEqualTilde, &rarr;, &#8594;, &#x2192;, &rarrx, \&rarr, &amp;rarr, `&rarr`";
+    let [Rendered::Paragraph(shown)] = &parse(source)[..] else {
+        panic!("a paragraph");
+    };
+    assert_eq!(shown.text, "A → ©, ≂̸, →, →, →, &rarrx, &rarr, &rarr, &rarr");
+    assert_eq!(shown.links, [(6..8, "/path?value=&rarr".into())]);
+
+    let url = "https://example.org/?value=&rarr";
+    for source in [format!("&rarr {url} &copy"), format!("&rarr <{url}> &copy")] {
+        let [Rendered::Paragraph(shown)] = &parse(&source)[..] else {
+            panic!("a paragraph");
+        };
+        assert_eq!(shown.text, format!("→ {url} ©"));
+        assert_eq!(shown.links, [(4..4 + url.len(), url.into())]);
+    }
+
+    let nodes = parse("![&rarr `&rarr`](image.png)\n\n```\n&rarr\n```");
+    assert!(matches!(&nodes[0], Rendered::Image { alt, .. } if alt == "→ &rarr"));
+    assert!(matches!(&nodes[1], Rendered::Code { text, .. } if text == "&rarr"));
 }
 
 #[test]

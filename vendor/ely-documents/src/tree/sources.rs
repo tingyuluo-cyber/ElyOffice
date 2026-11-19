@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use crate::markdown::mdast::Node;
+use crate::markdown::{entities, mdast::Node};
 
 use super::{Inline, Node as Drawn, html, span};
 
@@ -30,7 +30,18 @@ pub(super) fn written(node: &Node, source: &str) -> Option<(Range<usize>, Escape
         _ => return None,
     };
     Some(match node {
-        Node::Text(_) => (whole, Escapes::Markdown),
+        Node::Text(_) => {
+            // The parser may start text just after its first backslash.
+            let start = match source.as_bytes().get(whole.start) {
+                Some(byte)
+                    if byte.is_ascii_punctuation() && entities::escaped(source, whole.start) =>
+                {
+                    whole.start - 1
+                }
+                _ => whole.start,
+            };
+            (start..whole.end, Escapes::Markdown)
+        }
         Node::InlineCode(_) => (inside(source, whole, '`'), Escapes::Plain),
         Node::InlineMath(_) => (crate::markdown::math_inside(source, whole), Escapes::Plain),
         _ => (whole, Escapes::Plain),
@@ -290,6 +301,9 @@ fn read(written: &str, escapes: Escapes) -> Vec<Read> {
 
 /// A reference at `text`'s start, as Markdown reads it.
 fn reference(text: &str) -> Option<(String, usize)> {
+    if let Some((value, len)) = entities::shorthand(text) {
+        return Some((value.to_string(), len));
+    }
     let body = text.strip_prefix('&')?;
     let (end, _) = body.char_indices().take(34).find(|(_, ch)| *ch == ';')?;
     let name = &body[..end];
@@ -438,5 +452,21 @@ mod tests {
         let source = "ab :smile: y";
         assert_eq!(under(source, "y"), source.find('y').unwrap());
         assert_eq!(under(source, "b"), 0, "before the emoji: its start");
+    }
+
+    #[test]
+    fn shorthand_references_map_to_the_original_source() {
+        let source = r"\&rarr a &rarr b";
+        let inline = first(source);
+        assert_eq!(inline.text, "&rarr a → b");
+        assert_eq!(inline.source_at(source, 0), Some(1));
+        assert_eq!(inline.source_at(source, 8), Some(9));
+        assert_eq!(inline.drawn_at(source, 10), Some(8));
+        assert_eq!(under(source, "b"), source.find('b').unwrap());
+
+        let source = r"\\&rarr";
+        assert_eq!(first(source).text, "\\→");
+        assert_eq!(under(source, "\\"), 1);
+        assert_eq!(under(source, "→"), 2);
     }
 }

@@ -297,7 +297,7 @@ fn decoded(text: &str, attribute: bool) -> String {
 }
 
 /// Longest reference name HTML knows, in bytes.
-const LONGEST: usize = 32;
+pub(crate) const LONGEST: usize = 32;
 
 /// A reference at `text`'s start, as HTML reads it.
 pub(super) fn reference(text: &str, attribute: bool) -> Option<(String, usize)> {
@@ -350,7 +350,7 @@ fn legacy(name: &str) -> bool {
 }
 
 /// The text a named reference stands for, written with or without its `;`.
-pub(super) fn named(name: &str, semicolon: bool) -> Option<&'static str> {
+pub(crate) fn named(name: &str, semicolon: bool) -> Option<&'static str> {
     static NAMES: OnceLock<HashMap<&'static str, &'static str>> = OnceLock::new();
     let names = NAMES.get_or_init(|| {
         (entities::ENTITIES.iter())

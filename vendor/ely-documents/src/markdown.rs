@@ -2,6 +2,7 @@ use std::ops::Range;
 
 mod autolink;
 mod build;
+pub(crate) mod entities;
 mod flow;
 mod front;
 pub mod mdast;

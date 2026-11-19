@@ -70,6 +70,14 @@ fn markdown_writes_as_html() {
 }
 
 #[test]
+fn html_and_plain_text_export_read_named_references() {
+    let text = r"A &rarr B &lt C \&rarr `&rarr`";
+    let html = page(text, None, &Pictures::Inline).html;
+    assert_eq!(html, "<p>A → B &lt; C &amp;rarr <code>&amp;rarr</code></p>");
+    assert_eq!(plain(text).unwrap(), "A → B < C &rarr &rarr\n");
+}
+
+#[test]
 fn front_matter_and_raw_html_do_not_go_live() {
     let page = page(
         "---\ntitle: Secret\n---\n\n<script>alert(1)</script>\n\nText.\n",

@@ -1,10 +1,13 @@
 //! Text runs: pieces merged into one node, literal links split out.
 
-use std::ops::Range;
+use std::{iter::Peekable, ops::Range};
+
+use pulldown_cmark::LinkType;
 
 use super::{
     super::{
         autolink,
+        entities::shorthands,
         mdast::{self, Node},
         shape::literal,
     },
@@ -37,10 +40,24 @@ impl Builder<'_> {
         let Some(run) = self.text.take() else {
             return;
         };
-        let linked = (self.stack.iter()).any(|frame| matches!(frame.kind, Kind::Link { .. }));
-        let found = match linked {
+        let link = self.stack.iter().rev().find_map(|frame| match frame.kind {
+            Kind::Link { link, .. } => Some(link),
+            _ => None,
+        });
+        let shorthand = !matches!(link, Some(LinkType::Autolink | LinkType::Email));
+        let source = self.source;
+        let mut entities = run
+            .pieces
+            .iter()
+            .filter(|(_, _, verbatim)| shorthand && *verbatim)
+            .flat_map(|(span, from, _)| {
+                shorthands(source, span.clone())
+                    .map(move |(entity, value)| (from + entity.start..from + entity.end, value))
+            })
+            .peekable();
+        let found = match link.is_some() {
             true => Vec::new(),
-            false => links(self.source, &run),
+            false => links(source, &run),
         };
         let (mut source_from, mut value_from, mut nodes) = (run.range.start, 0, Vec::new());
         let mut piece = 0;
@@ -48,8 +65,12 @@ impl Builder<'_> {
             let start = value_at(&run, range.start, &mut piece);
             let end = value_at(&run, range.end, &mut piece);
             if start > value_from {
-                let before = &run.value[value_from..start];
-                nodes.push(Node::Text(literal(before, source_from..range.start)));
+                nodes.push(prose(
+                    &run.value,
+                    value_from..start,
+                    source_from..range.start,
+                    &mut entities,
+                ));
             }
             nodes.push(Node::Link(mdast::Link {
                 children: vec![Node::Text(literal(&run.value[start..end], range.clone()))],
@@ -59,11 +80,44 @@ impl Builder<'_> {
             (source_from, value_from) = (range.end, end);
         }
         if value_from < run.value.len() || nodes.is_empty() {
-            let rest = &run.value[value_from..];
-            nodes.push(Node::Text(literal(rest, source_from..run.range.end)));
+            nodes.push(prose(
+                &run.value,
+                value_from..run.value.len(),
+                source_from..run.range.end,
+                &mut entities,
+            ));
         }
         self.top().children.extend(nodes);
     }
+}
+
+fn prose(
+    text: &str,
+    range: Range<usize>,
+    position: Range<usize>,
+    entities: &mut Peekable<impl Iterator<Item = (Range<usize>, &'static str)>>,
+) -> Node {
+    let mut value = String::with_capacity(range.len());
+    push_prose(&mut value, text, range, entities);
+    Node::Text(mdast::Literal { value, position })
+}
+
+/// Writes prose in `range`, skipping any references belonging to literal links.
+pub(super) fn push_prose(
+    out: &mut String,
+    text: &str,
+    range: Range<usize>,
+    entities: &mut Peekable<impl Iterator<Item = (Range<usize>, &'static str)>>,
+) {
+    let mut from = range.start;
+    while let Some((entity, value)) = entities.next_if(|(span, _)| span.start < range.end) {
+        if entity.start >= from && entity.end <= range.end {
+            out.push_str(&text[from..entity.start]);
+            out.push_str(value);
+            from = entity.end;
+        }
+    }
+    out.push_str(&text[from..range.end]);
 }
 
 /// Literal links in the written stretches of `run`.
