@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, Div, InteractiveElement, IntoElement as _, MouseButton, MouseDownEvent,
-    ParentElement as _, TextLayout, Window, div,
+    ParentElement as _, Pixels, Point, TextLayout, Window, div,
 };
 
 use super::{Draw, table::CellAt};
@@ -55,6 +55,15 @@ impl Pointed {
 
 /// Takes a press's button and what it fell on.
 pub(crate) type OnPoint = Rc<dyn Fn(Pointed, MouseButton, &mut Window, &mut App)>;
+
+/// Editing uses the nearest insertion point. A context menu uses the glyph under the pointer.
+pub(super) fn text_hit(layout: &TextLayout, position: Point<Pixels>, button: MouseButton) -> usize {
+    let hit = match button {
+        MouseButton::Left => layout.closest_index_for_position(position),
+        _ => layout.index_for_position(position),
+    };
+    hit.unwrap_or_else(|near| near)
+}
 
 /// `element` hands its left and right presses to `on_point`.
 fn pointable(
@@ -110,9 +119,7 @@ pub(crate) fn point_lines(
 ) -> AnyElement {
     let text: Rc<str> = Rc::from(text);
     pointable(element, on_point, table, move |event| {
-        let at = layout
-            .index_for_position(event.position)
-            .unwrap_or_else(|near| near);
+        let at = text_hit(&layout, event.position, event.button);
         Pointed {
             code: code.then(|| text.clone()),
             ..Pointed::at(Place::Lines {
@@ -144,7 +151,7 @@ impl Draw<'_> {
     pub(super) fn point_text(
         &self,
         element: AnyElement,
-        at: impl Fn(gpui::Point<gpui::Pixels>) -> usize + 'static,
+        at: impl Fn(Point<Pixels>, MouseButton) -> usize + 'static,
         inline: &Inline,
     ) -> AnyElement {
         if self.hooks.on_point.is_none() {
@@ -152,7 +159,7 @@ impl Draw<'_> {
         }
         let inline = Rc::new(inline.clone());
         self.pointable(element, move |event| {
-            let at = at(event.position);
+            let at = at(event.position, event.button);
             let link = inline.links.iter().find(|(range, _)| range.contains(&at));
             Pointed {
                 link: link.map(|(_, url)| url.clone()),

@@ -126,6 +126,7 @@ impl Look {
         DocumentLook {
             focus: self.focus,
             typewriter: self.typewriter,
+            scroll_past_end: true,
             measure: Some(rems(measure)),
             font,
             scale: self.size as f32 / 100.0 * if reimu { 1.1 } else { 1.0 },

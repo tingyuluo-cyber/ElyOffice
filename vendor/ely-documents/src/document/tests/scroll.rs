@@ -1,8 +1,12 @@
 //! A long document's bar shows its place and moves it.
 
-use gpui::{Modifiers, MouseButton, ScrollDelta, ScrollEvent, TestAppContext, point, px};
+use gpui::{
+    Entity, Modifiers, MouseButton, ScrollDelta, ScrollEvent, TestAppContext, VisualTestContext,
+    point, px, size,
+};
 
-use super::{MarkdownMode, frames, open};
+use super::{MarkdownDocument, MarkdownMode, frames, open, text};
+use crate::document::edit::Landing;
 
 fn long() -> String {
     (0..300).map(|n| format!("Paragraph {n}.\n\n")).collect()
@@ -87,6 +91,155 @@ fn a_short_document_has_no_bar(cx: &mut TestAppContext) {
     let (_, cx) = open("Short paragraph.", MarkdownMode::Preview, cx);
     frames(cx);
     assert!(cx.debug_bounds("scrollbar-thumb").is_none());
+}
+
+fn allow_end_space(document: &Entity<MarkdownDocument>, cx: &mut VisualTestContext) {
+    document.update(cx, |document, cx| {
+        let look = crate::DocumentLook {
+            scroll_past_end: true,
+            ..document.look.clone()
+        };
+        document.set_look(look, cx);
+    });
+    frames(cx);
+}
+
+fn wheel_down(cx: &mut VisualTestContext) {
+    let view = cx.update(|window, _| window.viewport_size());
+    cx.simulate_event(ScrollEvent {
+        position: point(view.width / 2.0, view.height / 2.0),
+        delta: ScrollDelta::Pixels(point(px(0.), px(-100_000.))),
+        ..Default::default()
+    });
+    frames(cx);
+}
+
+#[gpui::test]
+fn the_end_leaves_half_a_view_of_space_in_each_mode(cx: &mut TestAppContext) {
+    let original = (0..60)
+        .map(|n| format!("Paragraph {n}."))
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    let (document, cx) = open(&original, MarkdownMode::Visual, cx);
+    allow_end_space(&document, cx);
+    for (mode, last) in [
+        (MarkdownMode::Visual, "markdown-block-59"),
+        (MarkdownMode::Source, "editor-line-118"),
+        (MarkdownMode::Preview, "markdown-block-59"),
+    ] {
+        document.update_in(cx, |document, window, cx| {
+            document.set_mode(mode, window, cx)
+        });
+        for height in [360., 600.] {
+            cx.simulate_resize(size(px(800.), px(height)));
+            frames(cx);
+            // Bring the end into the list's measured range before wheeling to its boundary.
+            document.update_in(cx, |document, window, cx| {
+                document.set_top_line(118, window, cx)
+            });
+            frames(cx);
+            wheel_down(cx);
+            let view = document.read_with(cx, |document, cx| match mode {
+                MarkdownMode::Source => document.editor.read(cx).scroll_handle().bounds(),
+                _ => document.list.viewport_bounds(),
+            });
+            let last = cx
+                .debug_bounds(last)
+                .expect("the last content remains visible");
+            let gap = view.bottom() - last.bottom();
+            let half = view.size.height / 2.0;
+            assert!(
+                (gap - half).abs() < px(40.),
+                "{mode:?}: {gap:?} at {view:?}"
+            );
+            if mode != MarkdownMode::Preview {
+                cx.simulate_click(
+                    point(view.center().x, view.bottom() - px(30.)),
+                    Modifiers::none(),
+                );
+                assert_eq!(
+                    document.read_with(cx, |document, cx| document.caret(cx)),
+                    (118, "Paragraph 59.".len())
+                );
+            }
+            assert_eq!(text(&document, cx), original);
+        }
+    }
+}
+
+#[gpui::test]
+fn enter_keeps_the_source_caret_clear_of_the_bottom_edge(cx: &mut TestAppContext) {
+    let original = (0..60)
+        .map(|n| format!("Line {n}."))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let (document, cx) = open(&original, MarkdownMode::Source, cx);
+    allow_end_space(&document, cx);
+    let editor = document.read_with(cx, |document, _| document.editor().clone());
+    let focus = editor.read_with(cx, gpui::Focusable::focus_handle);
+    document.update(cx, |document, cx| {
+        document.set_caret(59, "Line 59.".len(), cx)
+    });
+    cx.update(|window, cx| window.focus(&focus, cx));
+    frames(cx);
+    let handle = editor.read_with(cx, |editor, _| editor.scroll_handle());
+    let line = editor.read_with(cx, |editor, _| editor.metrics().line);
+    let view = handle.bounds();
+    let bottom = line * 60 - view.size.height;
+    editor.update(cx, |_, cx| {
+        handle.set_offset(point(px(0.), -bottom));
+        cx.notify();
+    });
+    frames(cx);
+    assert!(
+        (cx.debug_bounds("editor-line-59")
+            .expect("last line")
+            .bottom()
+            - view.bottom())
+        .abs()
+            <= px(1.)
+    );
+    cx.simulate_keystrokes("enter enter");
+    frames(cx);
+    let after = cx.debug_bounds("editor-line-61").expect("new caret line");
+    assert!(view.bottom() - after.bottom() >= line * 2 - px(1.));
+    assert_eq!(text(&document, cx), format!("{original}\n\n"));
+}
+
+#[gpui::test]
+fn enter_keeps_a_growing_visual_field_in_view(cx: &mut TestAppContext) {
+    let original = (0..60)
+        .map(|n| format!("Line {n}."))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let (document, cx) = open(&original, MarkdownMode::Visual, cx);
+    allow_end_space(&document, cx);
+    document.update_in(cx, |document, window, cx| {
+        document.open(Some(0), Landing::End, true, window, cx);
+    });
+    frames(cx);
+    let field = document.read_with(cx, |document, _| {
+        document.open.as_ref().unwrap().input.clone()
+    });
+    let caret = |cx: &mut VisualTestContext| {
+        field.read_with(cx, |input, _| input.caret_bounds().expect("laid out"))
+    };
+    let before = caret(cx);
+    let view = document.read_with(cx, |document, _| document.list.viewport_bounds());
+    document.update(cx, |document, cx| {
+        document.list.scroll_by(before.bottom() - view.bottom());
+        cx.notify();
+    });
+    frames(cx);
+    assert!((caret(cx).bottom() - view.bottom()).abs() <= px(2.));
+    cx.simulate_keystrokes("enter enter");
+    frames(cx);
+    let after = caret(cx);
+    assert!(
+        view.bottom() - after.bottom() >= after.size.height * 2.0 - px(2.),
+        "{after:?} inside {view:?}"
+    );
+    assert_eq!(text(&document, cx), format!("{original}\n\n"));
 }
 
 #[gpui::test]

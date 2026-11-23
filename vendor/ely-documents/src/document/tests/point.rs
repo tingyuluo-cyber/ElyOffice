@@ -90,6 +90,31 @@ fn a_press_opens_the_block_at_the_pressed_character(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn clicking_both_halves_of_the_last_glyph_places_the_visual_caret(cx: &mut TestAppContext) {
+    let (document, cx) = open("MMMM\nMMMM", MarkdownMode::Visual, cx);
+    let block = cx.debug_bounds("markdown-block-0").expect("drawn");
+    let (font, _) = sizes(cx);
+    let em = font * 0.6;
+    press_at(
+        block.left() + px(13.) + em * 3.25,
+        block.top() + px(10.) + font * 1.6,
+        MouseButton::Left,
+        cx,
+    );
+    assert_eq!(opened_caret(&document, cx), "MMMM\nMMM".len());
+
+    let (left, right) = document.read_with(cx, |document, cx| {
+        let input = document.open.as_ref().expect("open").input.read(cx);
+        (input.bounds_for(8).unwrap(), input.bounds_for(9).unwrap())
+    });
+    for (fraction, byte) in [(0.25, 8), (0.75, 9)] {
+        let x = left.left() + (right.left() - left.left()) * fraction;
+        press_at(x, left.center().y, MouseButton::Left, cx);
+        assert_eq!(opened_caret(&document, cx), byte);
+    }
+}
+
+#[gpui::test]
 fn a_press_past_a_crlf_line_types_before_its_end(cx: &mut TestAppContext) {
     let source = "one\r\ntwo\r\n";
     let (document, cx) = open(source, MarkdownMode::Visual, cx);

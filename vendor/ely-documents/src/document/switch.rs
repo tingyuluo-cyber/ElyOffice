@@ -32,6 +32,11 @@ impl MarkdownDocument {
             (!(listed(self.mode) && listed(mode))).then(|| self.top_line(cx))
         };
         self.mode = mode;
+        let scroll_past_end =
+            self.look.scroll_past_end && matches!(mode, MarkdownMode::Source | MarkdownMode::Split);
+        self.editor.update(cx, |editor, cx| {
+            editor.set_scroll_past_end(scroll_past_end, cx)
+        });
         self.preview = None;
         self.preview_selection = (mode == MarkdownMode::Preview).then_some((
             (picked.anchor, picked.head),

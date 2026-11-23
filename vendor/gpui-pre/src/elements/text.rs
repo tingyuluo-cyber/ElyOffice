@@ -861,6 +861,15 @@ impl TextLayout {
 
     /// Get the byte index into the input of the pixel position.
     pub fn index_for_position(&self, position: Point<Pixels>) -> Result<usize, usize> {
+        self.hit_index(position, false)
+    }
+
+    /// Get the nearest character boundary on the row at the pixel position.
+    pub fn closest_index_for_position(&self, position: Point<Pixels>) -> Result<usize, usize> {
+        self.hit_index(position, true)
+    }
+
+    fn hit_index(&self, position: Point<Pixels>, closest: bool) -> Result<usize, usize> {
         let element_state = self.0.borrow();
         let element_state = element_state
             .as_ref()
@@ -883,10 +892,12 @@ impl TextLayout {
                 line_start_ix += line.len() + 1;
             } else {
                 let position_within_line = position - line_origin;
-                match line.index_for_position(position_within_line, line_height) {
-                    Ok(index_within_line) => return Ok(line_start_ix + index_within_line),
-                    Err(index_within_line) => return Err(line_start_ix + index_within_line),
-                }
+                let hit = if closest {
+                    line.closest_index_for_position(position_within_line, line_height)
+                } else {
+                    line.index_for_position(position_within_line, line_height)
+                };
+                return hit.map(|at| line_start_ix + at).map_err(|at| line_start_ix + at);
             }
         }
 

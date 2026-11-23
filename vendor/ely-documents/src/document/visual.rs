@@ -1,8 +1,8 @@
 use gpui::{
-    AnyElement, App, Axis, ClickEvent, Context, Div, ExternalPaths, FontWeight, InteractiveElement,
-    IntoElement, KeyBinding, MouseButton, MouseDownEvent, ParentElement, Render, Role,
-    SharedString, StatefulInteractiveElement, Styled, StyledText, Window, actions, div, list,
-    prelude::FluentBuilder as _, relative,
+    AnyElement, App, Axis, ClickEvent, Context, Div, ExternalPaths, Focusable as _, FontWeight,
+    InteractiveElement, IntoElement, KeyBinding, MouseButton, MouseDownEvent, ParentElement,
+    Render, Role, SharedString, StatefulInteractiveElement, Styled, StyledText, Window, actions,
+    canvas, div, list, prelude::FluentBuilder as _, relative,
 };
 
 use super::{MarkdownDocument, edit::Landing, parse::Block};
@@ -120,15 +120,46 @@ impl MarkdownDocument {
         }
     }
 
-    /// List item `ix`, with typewriter room at the ends.
+    /// List item `ix`, with room at the ends of the document.
     fn item(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let (first, last) = (ix == 0, ix == self.parsed.blocks.len());
-        let room = self.room;
         div()
-            .when(first, |item| item.pt(room))
-            .when(last, |item| item.pb(room))
+            .when(first, |item| item.pt(self.top_room))
             .child(self.block_item(ix, window, cx))
+            .when(last && self.bottom_room > gpui::Pixels::ZERO, |item| {
+                let room = div().h(self.bottom_room);
+                let room = room.when(
+                    self.look.scroll_past_end && self.mode == MarkdownMode::Visual,
+                    |room| {
+                        room.cursor_text()
+                            .on_mouse_down(MouseButton::Left, cx.listener(Self::press_end_space))
+                    },
+                );
+                item.child(room)
+            })
             .into_any_element()
+    }
+
+    fn press_end_space(
+        &mut self,
+        event: &MouseDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if event.modifiers.secondary(cx) {
+            return;
+        }
+        window.prevent_default();
+        cx.stop_propagation();
+        if let Some(open) = self.open.as_ref().filter(|open| open.append) {
+            open.input.update(cx, |input, cx| {
+                let end = input.text().len();
+                input.select(end..end, cx);
+                window.focus(&input.focus_handle(cx), cx);
+            });
+        } else {
+            self.open(None, Landing::End, true, window, cx);
+        }
     }
 
     /// The open block in its closed frame, size and weight.
@@ -245,9 +276,29 @@ impl Render for MarkdownDocument {
                 cx.emit(super::Attachment::Files(dropped.paths().to_vec()));
             }));
         self.center_current(cx);
-        // Typewriter: half a view past each end.
         self.make_room();
+        self.follow_edit(window, cx);
         let blocks = list(self.list.clone(), cx.processor(Self::item)).size_full();
+        let height = self.list.viewport_bounds().size.height;
+        let blocks = div().relative().size_full().child(blocks).when(
+            self.look.scroll_past_end || self.look.typewriter,
+            |blocks| {
+                blocks.child(
+                    canvas(
+                        move |bounds, window, _| {
+                            if bounds.size.height != height {
+                                window.request_animation_frame();
+                            }
+                        },
+                        |_, _, _, _| {},
+                    )
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full(),
+                )
+            },
+        );
         // The text column: its measure, font, centered.
         let column = |content: gpui::AnyElement, look: &super::DocumentLook| {
             div().size_full().flex().justify_center().child(

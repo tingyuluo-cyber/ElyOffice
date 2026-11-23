@@ -1,4 +1,4 @@
-use gpui::{Context, ScrollStrategy};
+use gpui::{Context, MouseDownEvent, Pixels, Point, ScrollStrategy, Window};
 
 use super::{
     cursor::{Motion, Selection, merged, moved},
@@ -8,6 +8,56 @@ use super::{
 };
 
 impl CodeEditor {
+    /// Leaves half of the viewport scrollable beyond the last line.
+    pub fn set_scroll_past_end(&mut self, on: bool, cx: &mut Context<Self>) {
+        if self.options.scroll_past_end != on {
+            self.options.scroll_past_end = on;
+            self.reveal_edit = false;
+            cx.notify();
+        }
+    }
+
+    /// Reveals an edited caret using the current wrapped rows, including its lower margin.
+    pub(crate) fn reveal_after_edit(&mut self) {
+        if !std::mem::take(&mut self.reveal_edit)
+            || self.options.typewriter
+            || self.frame.line <= Pixels::ZERO
+        {
+            return;
+        }
+        let row = self.primary_row();
+        let line = self.frame.line;
+        let top = self.scroll_handle().offset().y;
+        if line * row + top < Pixels::ZERO {
+            self.scroll.scroll_to_item(row, ScrollStrategy::Top);
+        } else {
+            let margin = 2.min((self.metrics.height / line / 4.0) as usize);
+            self.scroll
+                .scroll_to_item_with_offset(row, ScrollStrategy::Bottom, margin);
+        }
+    }
+
+    /// The part of the source viewport below the last drawn row.
+    pub(crate) fn end_space(&self, at: Point<Pixels>) -> bool {
+        let handle = self.scroll_handle();
+        if !self.options.scroll_past_end || !handle.bounds().contains(&at) {
+            return false;
+        }
+        let end = self.frame.rows.len() - self.pad;
+        at.y >= self.metrics.top + handle.offset().y + self.frame.line * end
+    }
+
+    pub(crate) fn press_end_space(
+        &mut self,
+        event: &MouseDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.end_space(event.position) {
+            self.press(self.buffer.lines() - 1, event, window, cx);
+        }
+    }
+
     /// Moves every cursor. Up and down step over folded lines.
     pub(crate) fn motion(&mut self, motion: Motion, extend: bool, cx: &mut Context<Self>) {
         let hide = hidden(self.buffer.lines(), &folds(&self.buffer), &self.folded);

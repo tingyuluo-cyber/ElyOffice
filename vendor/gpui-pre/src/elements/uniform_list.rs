@@ -51,6 +51,7 @@ where
         scroll_handle: None,
         sizing_behavior: ListSizingBehavior::default(),
         horizontal_sizing_behavior: ListHorizontalSizingBehavior::default(),
+        end_space: 0.0,
     }
 }
 
@@ -66,6 +67,7 @@ pub struct UniformList {
     scroll_handle: Option<UniformListScrollHandle>,
     sizing_behavior: ListSizingBehavior,
     horizontal_sizing_behavior: ListHorizontalSizingBehavior,
+    end_space: f32,
 }
 
 /// Frame state used by the [UniformList].
@@ -364,7 +366,8 @@ impl Element for UniformList {
         };
         let content_size = Size {
             width: content_width,
-            height: longest_item_size.height * self.item_count,
+            height: longest_item_size.height * self.item_count
+                + padded_bounds.size.height * self.end_space,
         };
 
         let shared_scroll_offset = self.interactivity.scroll_offset.clone().unwrap();
@@ -394,7 +397,7 @@ impl Element for UniformList {
                 };
 
                 if self.item_count > 0 {
-                    let content_height = item_height * self.item_count;
+                    let content_height = content_size.height;
 
                     let is_scrolled_vertically = !scroll_offset.y.is_zero();
                     let max_scroll_offset = padded_bounds.size.height - content_height;
@@ -430,8 +433,13 @@ impl Element for UniformList {
                         let offset_pixels = item_height * offset;
 
                         // is the selected item above/below currently visible items
-                        let is_above = item_top < scroll_top + offset_pixels;
-                        let is_below = item_bottom > scroll_top + list_height;
+                        let (top_margin, bottom_margin) = if strategy == ScrollStrategy::Bottom {
+                            (Pixels::ZERO, offset_pixels)
+                        } else {
+                            (offset_pixels, Pixels::ZERO)
+                        };
+                        let is_above = item_top < scroll_top + top_margin;
+                        let is_below = item_bottom + bottom_margin > scroll_top + list_height;
 
                         if scroll_strict || is_above || is_below {
                             if strategy == ScrollStrategy::Nearest {
@@ -459,7 +467,8 @@ impl Element for UniformList {
                                         -target_scroll_top.clamp(Pixels::ZERO, max_scroll_offset);
                                 }
                                 ScrollStrategy::Bottom => {
-                                    updated_scroll_offset.y = -(item_bottom - list_height)
+                                    updated_scroll_offset.y = -(item_bottom + bottom_margin
+                                        - list_height)
                                         .clamp(Pixels::ZERO, max_scroll_offset);
                                 }
                                 ScrollStrategy::Nearest => {
@@ -479,7 +488,7 @@ impl Element for UniformList {
                         / item_height_f64)
                         .ceil() as usize;
 
-                    let visible_range = first_visible_element_ix
+                    let visible_range = cmp::min(first_visible_element_ix, self.item_count)
                         ..cmp::min(last_visible_element_ix, self.item_count);
 
                     let items = if y_flipped {
@@ -621,6 +630,12 @@ impl<T: UniformListDecoration + 'static> UniformListDecoration for Entity<T> {
 }
 
 impl UniformList {
+    /// Adds scrollable space after the items as a fraction of the viewport height.
+    pub fn with_scroll_end_space(mut self, fraction: f32) -> Self {
+        self.end_space = fraction.clamp(0.0, 1.0);
+        self
+    }
+
     /// Selects a specific list item for measurement.
     pub fn with_width_from_item(mut self, item_index: Option<usize>) -> Self {
         self.item_to_measure_index = item_index.unwrap_or(0);

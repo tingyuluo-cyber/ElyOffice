@@ -55,7 +55,11 @@ impl CodeEditor {
         self.marked = None;
         anchors::shift(&mut self.marks, &spans);
         self.commit(before, typing, cx);
-        self.reveal(true, cx);
+        if self.options.scroll_past_end && !self.options.typewriter {
+            self.reveal_edit = true;
+        } else {
+            self.reveal(true, cx);
+        }
     }
 
     /// Types text at each cursor; an opener brings its closer, and a closer already there is stepped over.

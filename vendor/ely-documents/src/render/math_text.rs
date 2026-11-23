@@ -50,16 +50,16 @@ impl MathText {
         links: Option<ElementId>,
         on_link: Option<OnLink>,
         color_marks: bool,
-    ) -> (Self, impl Fn(Point<Pixels>) -> usize + 'static) {
+    ) -> (
+        Self,
+        impl Fn(Point<Pixels>, gpui::MouseButton) -> usize + 'static,
+    ) {
         let shown = Rc::new(RefCell::new(None));
         let read = shown.clone();
-        let at = move |position| match &*read.borrow() {
-            Some(Shown { layout, swaps }) => back(
-                swaps,
-                layout
-                    .index_for_position(position)
-                    .unwrap_or_else(|near| near),
-            ),
+        let at = move |position, button| match &*read.borrow() {
+            Some(Shown { layout, swaps }) => {
+                back(swaps, super::point::text_hit(layout, position, button))
+            }
             None => 0,
         };
         let text = Self {
@@ -366,7 +366,10 @@ mod tests {
                 ..Inline::default()
             };
             let (text, at) = MathText::new("probe".into(), inline, None, None, false);
-            *self.found.borrow_mut() = Some((text.shown.clone(), Box::new(at)));
+            *self.found.borrow_mut() = Some((
+                text.shown.clone(),
+                Box::new(move |position| at(position, gpui::MouseButton::Left)),
+            ));
             let shell = gpui::div()
                 .w(gpui::px(self.width))
                 .text_size(gpui::px(16.0));

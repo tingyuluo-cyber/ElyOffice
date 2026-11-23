@@ -209,6 +209,10 @@ impl MarkdownDocument {
                     }
                     InputEvent::Changed => {
                         document.typed += 1;
+                        if document.look.scroll_past_end && !document.look.typewriter {
+                            document.reveal_caret = true;
+                            cx.notify();
+                        }
                         cx.emit(DocumentEvent::Changed)
                     }
                     // Enter in a cell writes it back.

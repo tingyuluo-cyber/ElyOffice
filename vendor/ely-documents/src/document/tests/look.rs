@@ -124,11 +124,11 @@ fn off_middle(
     document.read_with(cx, |document, _| {
         let mut block = document.list.bounds_for_item(ix).expect("laid out");
         if ix == 0 {
-            block.origin.y += document.room;
-            block.size.height -= document.room;
+            block.origin.y += document.top_room;
+            block.size.height -= document.top_room;
         }
         if ix == document.parsed.blocks.len() {
-            block.size.height -= document.room;
+            block.size.height -= document.bottom_room;
         }
         (block.center().y - document.list.viewport_bounds().center().y).abs()
     })

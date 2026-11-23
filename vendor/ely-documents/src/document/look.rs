@@ -1,6 +1,6 @@
 //! A writing view: how text shows, not what it says.
 
-use gpui::{Context, Rems, SharedString};
+use gpui::{Context, Focusable as _, Pixels, Rems, SharedString, Window};
 
 use super::MarkdownDocument;
 use crate::MarkdownMode;
@@ -13,6 +13,8 @@ pub struct DocumentLook {
     pub focus: bool,
     /// The current block or line stays mid-view.
     pub typewriter: bool,
+    /// The view can scroll past the last line and leave space below the caret while typing.
+    pub scroll_past_end: bool,
     /// The widest the text column grows.
     pub measure: Option<Rems>,
     /// The prose font; none keeps the theme's.
@@ -30,6 +32,7 @@ impl Default for DocumentLook {
         Self {
             focus: false,
             typewriter: false,
+            scroll_past_end: false,
             measure: None,
             font: None,
             scale: 1.0,
@@ -49,10 +52,12 @@ impl MarkdownDocument {
     pub fn set_look(&mut self, look: DocumentLook, cx: &mut Context<Self>) {
         log::info!("markdown document: look {look:?}");
         self.color_marks.set(look.color_marks);
+        let source = matches!(self.mode, MarkdownMode::Source | MarkdownMode::Split);
         self.editor.update(cx, |editor, cx| {
             editor.set_scale(look.scale, cx);
             editor.set_focus_line(look.focus, cx);
             editor.set_typewriter(look.typewriter, cx);
+            editor.set_scroll_past_end(source && look.scroll_past_end, cx);
             let numbers = match look.line_numbers {
                 true => LineNumbers::Absolute,
                 false => LineNumbers::Hidden,
@@ -73,18 +78,67 @@ impl MarkdownDocument {
         }
     }
 
-    /// Half a view of room at each end, for typewriter.
+    /// Half a view of room below the text, and above it for typewriter.
     pub(super) fn make_room(&mut self) {
-        let room = match self.look.typewriter && self.mode == MarkdownMode::Visual {
-            true => self.list.viewport_bounds().size.height / 2.0,
-            false => gpui::Pixels::ZERO,
+        let half = self.list.viewport_bounds().size.height / 2.0;
+        let top = if self.look.typewriter && self.mode == MarkdownMode::Visual {
+            half
+        } else {
+            Pixels::ZERO
         };
-        if room != self.room {
-            self.room = room;
-            let last = self.parsed.blocks.len();
+        let bottom = if self.look.scroll_past_end { half } else { top };
+        if top != self.top_room {
+            self.top_room = top;
             self.list.remeasure_items(0..1);
+        }
+        if bottom != self.bottom_room {
+            self.bottom_room = bottom;
+            let last = self.parsed.blocks.len();
             self.list.remeasure_items(last..last + 1);
         }
+    }
+
+    /// After an edit, keep the laid-out caret two rows clear of the lower edge.
+    pub(super) fn follow_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !std::mem::take(&mut self.reveal_caret)
+            || !self.look.scroll_past_end
+            || self.look.typewriter
+        {
+            return;
+        }
+        let Some(open) = &self.open else { return };
+        let field = open.input.clone();
+        let seen = (self.typed, field.read(cx).cursor());
+        cx.on_next_frame(window, move |document, window, cx| {
+            let input = field.read(cx);
+            if document.mode != MarkdownMode::Visual
+                || document.look.typewriter
+                || !document.look.scroll_past_end
+                || document
+                    .open
+                    .as_ref()
+                    .is_none_or(|open| open.input != field)
+                || !input.focus_handle(cx).is_focused(window)
+                || seen != (document.typed, input.cursor())
+                || document.list.is_scrollbar_dragging()
+            {
+                return;
+            }
+            let Some(caret) = input.caret_bounds() else {
+                return;
+            };
+            let view = document.list.viewport_bounds();
+            let margin = (caret.size.height * 2.0).min(view.size.height / 4.0);
+            let distance = if caret.top() < view.top() {
+                caret.top() - view.top()
+            } else {
+                (caret.bottom() + margin - view.bottom()).max(Pixels::ZERO)
+            };
+            if distance != Pixels::ZERO {
+                document.list.scroll_by(distance);
+                cx.notify();
+            }
+        });
     }
 
     /// The current block mid-view once it or its text moves.
@@ -98,15 +152,15 @@ impl MarkdownDocument {
         };
         // The ends' room is no block.
         if ix == 0 {
-            block.origin.y += self.room;
-            block.size.height -= self.room;
+            block.origin.y += self.top_room;
+            block.size.height -= self.top_room;
         }
         if ix == self.parsed.blocks.len() {
-            block.size.height -= self.room;
+            block.size.height -= self.bottom_room;
         }
         let view = self.list.viewport_bounds();
         // New layout, resize or end room moves it.
-        let heights = [block.size.height, view.size.height, self.room]
+        let heights = [block.size.height, view.size.height, self.top_room]
             .map(|height| f32::from(height).round() as u64);
         let moved = (ix, self.edits, self.typed, heights);
         if self.centered == Some(moved) {

@@ -269,11 +269,7 @@ impl Draw<'_> {
             if let Some(select) = self.select {
                 select.push(&inline.text, layout.clone(), &inline.links);
             }
-            let at = move |position| {
-                layout
-                    .index_for_position(position)
-                    .unwrap_or_else(|near| near)
-            };
+            let at = move |position, button| point::text_hit(&layout, position, button);
             return self.point_text(drawn, at, inline);
         }
         let (drawn, at) = math_text::MathText::new(

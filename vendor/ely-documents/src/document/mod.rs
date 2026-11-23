@@ -137,8 +137,10 @@ pub struct MarkdownDocument {
     /// Typing in the open block, counted.
     typed: u64,
     backticks: Option<typing::Backticks>,
-    /// Typewriter room past each end of the list.
-    room: Pixels,
+    /// Space before and after the list's content.
+    top_room: Pixels,
+    bottom_room: Pixels,
+    reveal_caret: bool,
     /// The block, text, typing and heights last centered.
     centered: Option<(usize, u64, u64, [u64; 3])>,
     focus: FocusHandle,
@@ -220,7 +222,9 @@ impl MarkdownDocument {
             typed: 0,
             backticks: None,
             centered: None,
-            room: Pixels::ZERO,
+            top_room: Pixels::ZERO,
+            bottom_room: Pixels::ZERO,
+            reveal_caret: false,
             focus,
             pointing: false,
             pressed: 0,

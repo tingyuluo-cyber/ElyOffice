@@ -318,10 +318,11 @@ impl Render for CodeEditor {
             _ => Vec::new(),
         };
         let minimap = self.frame.minimap;
-        // Half a view of room rows: the ends center too.
-        self.pad = match self.options.typewriter && line > Pixels::ZERO {
-            true => (self.metrics.height / 2.0 / line).ceil() as usize,
-            false => 0,
+        let half = self.metrics.height / 2.0 / line.max(gpui::px(1.0));
+        self.pad = if self.options.typewriter {
+            half.ceil() as usize
+        } else {
+            0
         };
         let mut shown = vec![Row::Room; self.pad];
         shown.extend(rows(&self.buffer, &hide, &self.marks));
@@ -366,12 +367,18 @@ impl Render for CodeEditor {
                 .scroll_to_item_strict(centered.0, ScrollStrategy::Center);
             self.centered = Some(centered);
         }
+        self.reveal_after_edit();
         let sticky = if self.options.sticky {
             self.sticky(cx)
         } else {
             None
         };
         let count = self.frame.rows.len();
+        let end_space = if self.options.scroll_past_end && !self.options.typewriter {
+            0.5
+        } else {
+            0.0
+        };
         let list = uniform_list(
             "editor-rows",
             count,
@@ -380,6 +387,7 @@ impl Render for CodeEditor {
             }),
         )
         .track_scroll(&self.scroll)
+        .with_scroll_end_space(end_space)
         .size_full();
         let (top, focus, input) = (cx.entity(), self.focus.clone(), cx.entity());
         let unlock = cx.entity();
@@ -401,6 +409,7 @@ impl Render for CodeEditor {
             .h_full()
             .min_h_0()
             .child(list)
+            .on_mouse_down(MouseButton::Left, cx.listener(Self::press_end_space))
             .children(sticky)
             .child(
                 canvas(
@@ -416,7 +425,6 @@ impl Render for CodeEditor {
                             editor.metrics.width = bounds.size.width;
                             resized
                         });
-                        // A new height centers the caret again.
                         if resized {
                             window.request_animation_frame();
                         }

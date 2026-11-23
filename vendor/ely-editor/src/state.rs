@@ -77,6 +77,7 @@ pub(crate) struct Options {
     pub focus_line: bool,
     /// The caret's line stays mid-view.
     pub typewriter: bool,
+    pub scroll_past_end: bool,
     pub soft_wrap: bool,
 }
 
@@ -159,8 +160,9 @@ pub struct CodeEditor {
     pub(crate) metrics: Metrics,
     /// The caret row, view and line heights last centered.
     pub(crate) centered: Option<(usize, Pixels, Pixels)>,
-    /// Typewriter room rows at each end.
+    /// Typewriter room rows before the text.
     pub(crate) pad: usize,
+    pub(crate) reveal_edit: bool,
     pub(crate) dragging: bool,
     pub(crate) caret_on: bool,
     /// Blink runs only while focused, or unseen cursors redraw forever.
@@ -243,6 +245,7 @@ impl CodeEditor {
                 scale: 1.0,
                 focus_line: false,
                 typewriter: false,
+                scroll_past_end: false,
                 soft_wrap: false,
             },
             marks: Marks::default(),
@@ -251,6 +254,7 @@ impl CodeEditor {
             metrics: Metrics::default(),
             centered: None,
             pad: 0,
+            reveal_edit: false,
             dragging: false,
             caret_on: true,
             focused: false,

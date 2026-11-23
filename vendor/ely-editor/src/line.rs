@@ -410,7 +410,8 @@ impl CodeEditor {
         cx: &mut Context<Self>,
     ) {
         window.focus(&self.focus, cx);
-        let Some(at) = self.offset_at(event.position, window, cx) else {
+        let Some(at) = self.offset_at(event.position, window, cx)
+            .or_else(|| self.end_space(event.position).then(|| self.buffer.len())) else {
             return;
         };
         let chosen = match event.click_count {
