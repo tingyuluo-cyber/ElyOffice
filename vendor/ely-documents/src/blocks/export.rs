@@ -123,12 +123,7 @@ fn quoted(text: &str) -> String {
 
 /// Code between fences longer than any run of backticks inside it.
 fn fenced(text: &str, language: &str) -> String {
-    let longest = text
-        .split(|ch| ch != '`')
-        .map(str::len)
-        .max()
-        .unwrap_or_default();
-    let fence = "`".repeat(longest.max(2) + 1);
+    let fence = crate::markdown::code_fence(text);
     format!("{fence}{language}\n{text}\n{fence}")
 }
 

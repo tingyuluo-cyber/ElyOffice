@@ -21,7 +21,7 @@ impl MarkView {
             return;
         };
         let (open, close) = match typed {
-            "*" | "_" | "`" | "$" => (typed, typed),
+            "*" | "_" | "$" => (typed, typed),
             "~" => ("~~", "~~"),
             "[" => ("[", "]"),
             "(" => ("(", ")"),

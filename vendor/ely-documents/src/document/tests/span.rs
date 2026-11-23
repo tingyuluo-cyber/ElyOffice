@@ -90,6 +90,40 @@ fn a_drag_down_opens_the_blocks_it_crosses_as_one_selection(cx: &mut TestAppCont
 }
 
 #[gpui::test]
+fn three_backticks_turn_a_visual_drag_into_one_code_block(cx: &mut TestAppContext) {
+    let (document, cx) = open(TEXT, MarkdownMode::Visual, cx);
+    drag(0, 2, cx);
+    lift(true, cx);
+    let selected = &TEXT[field(&document, cx).1];
+    for count in 1..=2 {
+        cx.simulate_keystrokes("`->`");
+        assert_eq!(
+            document.read_with(cx, |document, cx| document.selected(cx)),
+            selected
+        );
+        let ticks = "`".repeat(count);
+        assert_eq!(
+            text(&document, cx),
+            format!("First line.{ticks}{selected}{ticks}\n")
+        );
+    }
+    cx.simulate_keystrokes("`->`");
+    assert_eq!(
+        text(&document, cx),
+        format!("First line.\n```\n{selected}\n```\n")
+    );
+    document.read_with(cx, |document, _| {
+        assert!(document.open.is_none());
+        assert_eq!(
+            document.parsed.blocks[1].kind,
+            super::super::TargetBlock::Code
+        );
+    });
+    cx.simulate_keystrokes("secondary-z");
+    assert_eq!(text(&document, cx), TEXT);
+}
+
+#[gpui::test]
 fn a_drag_up_keeps_its_caret_at_the_top(cx: &mut TestAppContext) {
     let (document, cx) = open(TEXT, MarkdownMode::Visual, cx);
     drag(2, 0, cx);

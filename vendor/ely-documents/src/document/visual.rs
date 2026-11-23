@@ -237,6 +237,7 @@ impl Render for MarkdownDocument {
         let root = div()
             .size_full()
             .capture_key_down(cx.listener(Self::surround_selection))
+            .capture_any_mouse_down(cx.listener(|document, _, _, _| document.backticks = None))
             .bg(colors.surface)
             .font_weight(FontWeight::NORMAL)
             .on_drop(cx.listener(|_, dropped: &ExternalPaths, _, cx| {

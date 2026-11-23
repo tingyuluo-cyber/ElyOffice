@@ -9,6 +9,7 @@ impl MarkdownDocument {
         if mode == self.mode {
             return;
         }
+        self.backticks = None;
         let preview = (self.mode == MarkdownMode::Preview)
             .then(|| self.preview_ends(cx))
             .flatten();

@@ -136,6 +136,7 @@ pub struct MarkdownDocument {
     color_marks: Rc<Cell<bool>>,
     /// Typing in the open block, counted.
     typed: u64,
+    backticks: Option<typing::Backticks>,
     /// Typewriter room past each end of the list.
     room: Pixels,
     /// The block, text, typing and heights last centered.
@@ -217,6 +218,7 @@ impl MarkdownDocument {
             look: DocumentLook::default(),
             color_marks,
             typed: 0,
+            backticks: None,
             centered: None,
             room: Pixels::ZERO,
             focus,

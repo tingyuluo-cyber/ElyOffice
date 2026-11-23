@@ -84,6 +84,25 @@ fn visual_typing_surrounds_the_selection_in_one_undo(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn visual_backticks_save_a_fenced_block_with_its_original_line_endings(cx: &mut TestAppContext) {
+    let original = "一行\r\n第二行\r\n";
+    let (view, cx) = open(original, cx);
+    let document = view.read_with(cx, |view, _| view.document().clone());
+    document.update_in(cx, |document, window, cx| {
+        document.show_match(0.."一行\n第二行".len(), window, cx);
+    });
+    cx.run_until_parked();
+    cx.simulate_keystrokes("`->` `->` `->`");
+    let saved = view.read_with(cx, |view, _| {
+        let doc = view.doc.lock().expect("the text lock");
+        doc.source.encode(&doc.current)
+    });
+    assert_eq!(saved, "```\r\n一行\r\n第二行\r\n```\r\n".as_bytes());
+    cx.simulate_keystrokes(ely_gpui_component::secondary!("z"));
+    assert_eq!(current(&view, cx), "一行\n第二行\n");
+}
+
+#[gpui::test]
 fn source_typing_surrounds_each_selection_and_types_at_bare_carets(cx: &mut TestAppContext) {
     let original = "猫和狗\n";
     let (view, cx) = open(original, cx);

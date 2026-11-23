@@ -1,3 +1,7 @@
+mod backticks;
+
+pub(super) use backticks::Backticks;
+
 use gpui::{Context, Focusable as _, KeyDownEvent, Window};
 
 use super::MarkdownDocument;
@@ -10,19 +14,26 @@ impl MarkdownDocument {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let backticks = self.backticks.take();
         if self.mode == MarkdownMode::Preview
             || event.prefer_character_input
-            || event
-                .keystroke
-                .key_char
-                .as_deref()
-                .unwrap_or(&event.keystroke.key)
-                != "*"
             || event.keystroke.modifiers.control
             || event.keystroke.modifiers.platform
             || event.keystroke.modifiers.alt
         {
             return;
+        }
+        let key = &event.keystroke;
+        match key.key_char.as_deref().unwrap_or(&key.key) {
+            "`" => {
+                if self.type_backtick(backticks, window, cx) {
+                    window.prevent_default();
+                    cx.stop_propagation();
+                }
+                return;
+            }
+            "*" => {}
+            _ => return,
         }
         if let Some(open) = &self.open {
             let input = open.input.read(cx);

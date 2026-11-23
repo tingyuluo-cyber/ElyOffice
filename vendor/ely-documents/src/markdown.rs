@@ -41,6 +41,16 @@ pub(crate) fn span(node: &mdast::Node) -> Range<usize> {
     node.position().clone()
 }
 
+/// A code fence longer than any backtick run in its body.
+pub(crate) fn code_fence(text: &str) -> String {
+    let longest = text
+        .split(|ch| ch != '`')
+        .map(str::len)
+        .max()
+        .unwrap_or_default();
+    "`".repeat(longest.max(2) + 1)
+}
+
 /// How a stretch of markdown prints while it is edited.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Mark {
