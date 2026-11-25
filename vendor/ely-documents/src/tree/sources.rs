@@ -14,6 +14,8 @@ pub enum Escapes {
     Html,
     /// Escaped pipes, as a table cell's code reads them.
     Pipes,
+    /// A hard line break starts at its Markdown marker.
+    HardBreak,
 }
 
 /// A leaf's written span and how it reads.
@@ -44,6 +46,7 @@ pub(super) fn written(node: &Node, source: &str) -> Option<(Range<usize>, Escape
         }
         Node::InlineCode(_) => (inside(source, whole, '`'), Escapes::Plain),
         Node::InlineMath(_) => (crate::markdown::math_inside(source, whole), Escapes::Plain),
+        Node::Break(_) => (whole, Escapes::HardBreak),
         _ => (whole, Escapes::Plain),
     })
 }
@@ -338,6 +341,9 @@ fn align(drawn: &str, written: &str, escapes: Escapes, at: usize) -> Option<usiz
 
 /// Drawn chars from the end and where each was written.
 fn aligned(drawn: &str, written: &str, escapes: Escapes) -> Vec<(usize, usize)> {
+    if escapes == Escapes::HardBreak {
+        return vec![(0, 0)];
+    }
     let source = read(written, escapes);
     let mut j = source.len();
     let mut out = Vec::new();

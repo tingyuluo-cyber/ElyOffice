@@ -126,6 +126,22 @@ fn a_press_past_a_crlf_line_types_before_its_end(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn a_press_at_the_end_of_a_hard_break_lands_before_its_marker(cx: &mut TestAppContext) {
+    for (marker, ending) in [("\\", "\n"), ("  ", "\r\n")] {
+        let source = format!("one{marker}{ending}two{ending}");
+        let (document, cx) = open(&source, MarkdownMode::Visual, cx);
+        press_on(0, 4, MouseButton::Left, cx);
+        assert_eq!(opened_caret(&document, cx), "one".len(), "{source:?}");
+        cx.simulate_input("X");
+        cx.simulate_keystrokes("escape");
+        assert_eq!(
+            super::text(&document, cx),
+            format!("oneX{marker}{ending}two{ending}")
+        );
+    }
+}
+
+#[gpui::test]
 fn a_press_in_code_keeping_a_crlf_lands_on_its_character(cx: &mut TestAppContext) {
     let source = "`one\r\ntwo`\n";
     let (document, cx) = open(source, MarkdownMode::Visual, cx);

@@ -1,11 +1,11 @@
 //! An open block keeps its place and size (R7.5).
 
 use gpui::{
-    Bounds, Fill, Modifiers, Pixels, StyleRefinement, Styled, TestAppContext, VisualTestContext,
-    rems,
+    Bounds, Fill, Modifiers, MouseButton, Pixels, StyleRefinement, Styled, TestAppContext,
+    VisualTestContext, px, rems, size,
 };
 
-use super::{open, press};
+use super::{frames, open, point::press_at, press};
 use crate::{TargetBlock, document::visual::open_text};
 use crate::{
     forms::Highlight,
@@ -41,6 +41,48 @@ fn an_open_paragraph_keeps_its_place_and_height(cx: &mut TestAppContext) {
         near(closed.size.height, open.size.height),
         "{closed:?} {open:?}"
     );
+}
+
+#[gpui::test]
+fn opening_and_clicking_a_long_paragraph_keeps_its_rows_at_fractional_dpi(cx: &mut TestAppContext) {
+    let source = "中文 words\n".repeat(32);
+    let (document, cx) = open(&source, MarkdownMode::Visual, cx);
+    cx.simulate_scale_factor_change(1.25);
+    cx.simulate_resize(size(px(700.), px(960.)));
+    let (font, _) = super::point::sizes(cx);
+    let requested = px(22.51);
+    document.update(cx, |document, cx| {
+        let mut look = document.look().clone();
+        look.scale = requested / (font * crate::render::LINE);
+        document.set_look(look, cx);
+    });
+    frames(cx);
+
+    let block = cx.debug_bounds("markdown-block-0").expect("drawn");
+    let (line, padding) = cx.update(|window, _| {
+        (
+            window.pixel_snap(requested),
+            rems(0.25).to_pixels(window.rem_size()),
+        )
+    });
+    let row = 27;
+    let x = block.left() + px(14.);
+    let y = block.top() + padding + px(1.) + line * (row as f32 + 0.5);
+    for _ in 0..2 {
+        press_at(x, y, MouseButton::Left, cx);
+        document.read_with(cx, |document, cx| {
+            assert_eq!(document.caret(cx), (row, 0));
+            let caret = document
+                .open
+                .as_ref()
+                .expect("the paragraph opens")
+                .input
+                .read(cx)
+                .caret_bounds()
+                .expect("the caret is drawn");
+            assert!(near(caret.center().y, y), "caret {caret:?}, click y {y}");
+        });
+    }
 }
 
 #[gpui::test]
